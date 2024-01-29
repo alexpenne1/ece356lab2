@@ -66,6 +66,11 @@ void sr_init(struct sr_instance* sr)
  *
  *---------------------------------------------------------------------*/
 
+// Pseudocode for sr_handlepacket:
+//check etherheader for if IP or ARP
+//uint16_t ethertype (utils)
+// break into ip and arp methods
+
 void sr_handlepacket(struct sr_instance* sr,
         uint8_t * packet/* lent */,
         unsigned int len,
@@ -78,12 +83,56 @@ void sr_handlepacket(struct sr_instance* sr,
 
   printf("*** -> Received packet of length %d \n",len);
 
+  // Determine if IP or ARP packet from ethertype. (found in sr_protocol.h)
+  switch (ethertype(packet)) {
+  case ethertype_ip:
+	  printf("IP packet.\n");
+	  // Call handle IP packet method.
+	  break;
+  case ethertype_arp:
+	  printf("ARP packet.\n");
+	  sr_handlearp(sr, packet + sizeof(sr_ethernet_hdr_t), interface, len - sizeof(sr_ethernet_hdr_t));
+	  break;
+  default:
+	  printf("Unknown ethertype.\n");
+	  return;
+  }
 
-  /* fill in code here */
+  // ARP PSEUDOCODE:
+  //ARP
+    //check request or reply using ar_op
+    //if request
+      //send a reply
 
-  //check etherheader for if IP or ARP
-  //uint16_t ethertype (utils)
-  // break into ip and arp methods
+
+    //if reply
+      //update the cache
+
+  // sr_handlearp(sr_instance, buffer, interface, length)
+    // Takes in the ARP packet. AKA the incoming packet ahead of the ethernet header.
+  void sr_handlearp(struct sr_instance* sr, uint_8* arp_buffer, char* interface, unsigned int len) {
+
+	  printf("Handling ARP...\n");
+
+	  // Cast buffer to arp header struct type.
+	  sr_arp_hdr_t* arp_packet = (sr_arp_hdr_t*) arp_buffer;
+
+	  // Determine if request or reply.
+	  switch (arp_packet->ar_op) {
+	  case arp_op_request:
+		  printf("ARP request.\n");
+		  break;
+	  case arp_op_reply:
+		  printf("ARP reply.\n")
+		  break;
+	  default:
+		  printf("Unknown ARP opcode.\n")
+		  return;
+	  }
+  }
+
+
+
 
   //IP 
     //check min length (if length is less than the size of the sr_protocols struct)
@@ -105,14 +154,7 @@ void sr_handlepacket(struct sr_instance* sr,
                 //if no response, send "Destination host unreachable"
 
 
-  //ARP
-    //check request or reply using ar_op
-    //if request
-      //send a reply 
 
-
-    //if reply
-      //update the cache
 
 }/* end sr_ForwardPacket */
 
