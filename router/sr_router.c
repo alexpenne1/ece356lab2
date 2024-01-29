@@ -78,7 +78,43 @@ void sr_handlepacket(struct sr_instance* sr,
 
   printf("*** -> Received packet of length %d \n",len);
 
+
   /* fill in code here */
 
+  //check etherheader for if IP or ARP
+  //uint16_t ethertype (utils)
+  // break into ip and arp methods
+
+  //IP 
+    //check min length (if length is less than the size of the sr_protocols struct)
+    //checksum validation cksum from header (ip sum field)
+    //decrement the ttl by 1 then recompute the packet cksum over the modified header
+      //discard if checksum does not match
+    //check if ttl is less than one
+      //if <= 1 -> send ICMP packet "Time Exceeded"
+      // if >1, decrement ttl then cksum 
+      //obtain destination id then check if its in our local interface
+        //if in local interface <- check if ICMP or not
+          //if ckcsum is valid, send echo request (ping)
+          //else ignore the packet then send ICMP "Port Unreachable"
+        //else
+          //check routing table for longest prefix match 
+            //if no match, ICMP "Destination net unreachable"
+            //else: check the cache 
+              //if not in the cache then send ARP request
+                //if no response, send "Destination host unreachable"
+
+
+  //ARP
+    //check request or reply using ar_op
+    //if request
+      //send a reply 
+
+
+    //if reply
+      //update the cache
+
 }/* end sr_ForwardPacket */
+
+
 
