@@ -110,7 +110,7 @@ void sr_handlepacket(struct sr_instance* sr,
 
   // sr_handlearp(sr_instance, buffer, interface, length)
     // Takes in the ARP packet. AKA the incoming packet ahead of the ethernet header.
-  void sr_handlearp(struct sr_instance* sr, uint_8* arp_buffer, char* interface, unsigned int len) {
+  void sr_handlearp(struct sr_instance* sr, uint8_t* arp_buffer, char* interface, unsigned int len) {
 
 	  printf("Handling ARP...\n");
 
