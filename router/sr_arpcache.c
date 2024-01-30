@@ -17,7 +17,62 @@
   See the comments in the header file for an idea of what it should look like.
 */
 void sr_arpcache_sweepreqs(struct sr_instance *sr) { 
-    /* Fill this in */
+	printf("Sweeping requests...");
+    // Get list of requests.
+	struct sr_arpreq* current_requests = sr->cache.requests;
+	// Go through linked list of requests.
+	while (current_requests != 0) {
+		// Check if has a MAC address yet in the cache. Must free this if not NULL.
+		struct sr_arpentry* request_entry = sr_arpcache_lookup(&sr->cache, current_requests->ip);
+		// Check if entry is null.
+		if (request_entry != NULL) {
+			printf("Cache hit on IP %d", current_requests->ip);
+			// Get packets in the queue.
+			struct sr_packet* current_packets = current_requests->packets;
+			// Go through linked list of packets.
+			while (current_packets != 0) {
+				// Make packet IP header.
+				sr_ip_hdr_t* current_ip = (sr_ip_hdr_t*) current_packets->buf;
+				// Malloc space for ethernet header.
+				uint8_t* current_mem_block = malloc(current_ip->ip_len + sizeof(sr_ethernet_hdr_t));
+				// Place IP header inside ethernet header.
+				memcpy(current_mem_block+sizeof(sr_ethernet_hdr_t), current_ip, current_ip->ip_len);
+				// Cast to ethernet header.
+				sr_ethernet_hdr_t* current_ethernet = (sr_ethernet_hdr_t*)current_mem_block;
+				// Set ethernet header up.
+				current_ethernet->ether_type = htons(ethertype_ip);
+				memcpy(current_ethernet->ether_dhost, request_entry->mac, ETHER_ADDR_LEN);
+				// Need receiving interface to set source MAC.
+				struct sr_if* receiving_interface = sr_get_interface(sr, current_packets->iface);
+				memcpy(current_ethernet->ether_shost, receiving_interface->addr, ETHER_ADDR_LEN);
+				// Send the packet.
+				sr_send_packet(sr, current_mem_block, current_ip->ip_len+sizeof(sr_ethernet_hdr_t), receiving_interface);
+				// Go to next packet.
+				current_packets = current_packets->next;
+			}
+			// All packets sent. Need to destroy request.
+			sr_arpreq_destroy(&sr->cache, current_requests);
+		} else {
+			// Cache miss. Need to resend ARP.
+			if (difftime(time(0), current_requests->sent)>1) {
+				// Been longer than a second.
+				// Check times sent.
+				if (current_requests->times_sent > 4) {
+					// Sent the max times.
+					// TODO: send icmp packet
+					// Destory request.
+					sr_arpreq_destroy(&sr->cache, current_requests);
+					printf("Request timed out.");'
+				} else {
+					current_requests->times_sent++;
+					current_requests->sent = time(0);
+					// TODO: send arp request
+					// Get next request.
+					current_requests = current_requests->next;
+				}
+			}
+		}
+	}
 }
 
 /* You should not need to touch the rest of this code. */
