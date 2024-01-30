@@ -129,6 +129,8 @@ void sr_handlepacket(struct sr_instance* sr,
 		  break;
 	  default:
 		  printf("Unknown ARP opcode.\n");
+		  // put into cache
+		  sr_arpcache_insert(&sr->cache, arp_packet->ar_sha, arp_packet->ar_sip);
 		  return;
 	  }
   }
