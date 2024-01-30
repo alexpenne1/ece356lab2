@@ -136,8 +136,28 @@ void sr_handlepacket(struct sr_instance* sr,
 void send_arp_reply(struct sr_instance* sr, sr_arp_hdr_t* arp_packet, struct sr_if* interface) {
 	// Malloc header space.
 	uint8_t mem_block = malloc(sizeof(sr_arp_hdr_t) + sizeof(sr_ethernet_hdr_t));
-	sr_arp_hdr_t* arp_header = (sr_arp_hdr_t*)mem_block+sizeof(sr_ethernet_hdr_t);
-	sr_ethernet_hdr_t* ethernet_header = (sr_ethernet_hdr_t*)block;
+	sr_arp_hdr_t* arp_header = (sr_arp_hdr_t*)(mem_block+sizeof(sr_ethernet_hdr_t));
+	sr_ethernet_hdr_t* ethernet_header = (sr_ethernet_hdr_t*)mem_block;
+
+	// ARP header:
+	arp_header->ar_op = htons(arp_op_reply); // arp reply optype
+	arp_header->ar_hrd = htons(arp_hrd_ethernet); // ethernet hardware
+	arp_header->ar_hln = ETHER_ADDR_LEN; // hardware address length
+	arp_header->ar_pro = htons(0x0800); // protocol type (IPv4)
+	arp_header->ar_pln = sizeof(uint32_t); // IPv4 length is 32 bits
+	arp_header->ar_sip = interface->ip; // put own ip into source ip
+	arp_header->ar_tip = arp_packet->ar_sip; // put source ip from request into target ip
+	memcpy(arp_header->ar_sha, interface->addr, ETHER_ADDR_LEN); // put source ethernet address
+	memcpy(arp_header->ar_tha, arp_packet->ar_sha, ETHER_ADDR_LEN); // put target ethernet address
+
+	// Ethernet header:
+	memcpy(ethernet_header->ether_shost, interface->addr, ETHER_ADDR_LEN); // Put in ethernet source and target MAC.
+	memcpy(ethernet_header->ether_dhost, arp_packet->ar_sha, ETHER_ADDR_LEN);
+
+	// Try to send packet.
+	int success = sr_send_packet(sr, mem_block, sizeof(sr_arp_hdr_t)+sizeof(sr_ethernet_hdr_t), interface->name);
+
+
 }
 
 
