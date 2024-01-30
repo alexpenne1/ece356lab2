@@ -66,13 +66,45 @@ void sr_arpcache_sweepreqs(struct sr_instance *sr) {
 				} else {
 					current_requests->times_sent++;
 					current_requests->sent = time(0);
-					// TODO: send arp request
+					// Send ARP request.
+					sr_send_arp_request(sr, current_requests);
 					// Get next request.
 					current_requests = current_requests->next;
 				}
 			}
 		}
 	}
+}
+
+void sr_send_arp_request(struct sr_instance* sr, struct sr_arpreq* arp_request) {
+	printf("Sending ARP request...\n");
+	// Malloc space for request.
+	uint8_t* mem_block = malloc(sizeof(sr_arp_hdr_t)+sizeof(sr_ethernet_hdr_t));
+	// Cast ARP and ethernet header.
+	sr_arp_hdr_t* arp_header = (sr_arp_hdr_t*)(mem_block+sizeof(sr_ethernet_hdr_t));
+	sr_ethernet_hdr_t* ethernet_header = (sr_ethernet_hdr_t*)mem_block;
+	// Add values to headers.
+	arp_header->ar_hln = ETHER_ADDR_LEN;
+	arp_header->ar_hrd = htons(arp_hrd_ethernet);
+	arp_header->ar_pln = sizeof(uint32_t);
+	arp_header->ar_pro = htons(0x0800);
+	arp_header->ar_op = htons(arp_op_request);
+	// Need source interface.
+	struct sr_if* source_interface = sr_get_interface(sr,  arp_request->packets->iface);
+	memcpy(arp_header->ar_sha, source_interface->addr, ETHER_ADDR_LEN);
+	arp_header->ar_sip = source_interface->ip;
+	arp_header->ar_tha = 255;
+	arp_header->ar_tip = arp_request->ip;
+
+	ethernet_header->ether_dhost = 255;
+	ethernet_header->ether_shost = source_interface->addr;
+	ethernet_header->ether_type = htons(ethertype_arp);
+	// Send the packet.
+	int success = sr_send_packet(sr, mem_block, sizeof(sr_arp_hdr_t)+sizeof(sr_ethernet_hdr_t), source_interface->name);
+	if (success != 0) {
+		printf("Failed to send ARP request.");
+	}
+	free(mem_block);
 }
 
 /* You should not need to touch the rest of this code. */
