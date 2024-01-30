@@ -87,7 +87,7 @@ void sr_handlepacket(struct sr_instance* sr,
   switch (ethertype(packet)) {
   case ethertype_ip:
 	  printf("IP packet.\n");
-	  // Call handle IP packet method.
+	  sr_handle_ip(sr, packet + sizeof(sr_ethernet_hdr_t), interface, len - sizeof(sr_ethernet_hdr_t));
 	  break;
   case ethertype_arp:
 	  printf("ARP packet.\n");
@@ -96,6 +96,7 @@ void sr_handlepacket(struct sr_instance* sr,
   default:
 	  printf("Unknown ethertype.\n");
 	  return;
+  }
   }
 
   // ARP PSEUDOCODE:
@@ -124,11 +125,10 @@ void sr_handlepacket(struct sr_instance* sr,
 		  send_arp_reply(sr, arp_packet, interface);
 		  break;
 	  case arp_op_reply:
-		  printf("ARP reply.\n")
-		  //handle_arp_reply
+		  printf("ARP reply.\n");
 		  break;
 	  default:
-		  printf("Unknown ARP opcode.\n")
+		  printf("Unknown ARP opcode.\n");
 		  return;
 	  }
   }
@@ -141,8 +141,9 @@ void send_arp_reply(struct sr_instance* sr, sr_arp_hdr_t* arp_packet, struct sr_
 }
 
 
-  //IP 
-    //check min length (if length is less than the size of the sr_protocols struct)
+  //DORIZ TO-DO: IP 
+
+  //check min length (if length is less than the size of the sr_protocols struct)
     //checksum validation cksum from header (ip sum field)
     //decrement the ttl by 1 then recompute the packet cksum over the modified header
       //discard if checksum does not match
@@ -160,10 +161,71 @@ void send_arp_reply(struct sr_instance* sr, sr_arp_hdr_t* arp_packet, struct sr_
               //if not in the cache then send ARP request
                 //if no response, send "Destination host unreachable"
 
+  void sr_handle_ip(struct sr_instance* sr, uint8_t* ip_buffer, char* ip_interface, unsigned int ip_len) {
+
+  printf("Handling IP...\n");
+    
+  sr_ip_hdr_t* ip_packet = (sr_ip_hdr_t*) ip_buffer;
+  uint32_t dest_addr = ip_packet->ip_dst;
+  uint32_t source_addr = ip_packet->ip_src; 
+
+  //check if address is within network (sr_if.c/h) <- instance at member if_list
+  struct sr_if* interface_check = sr->if_list;
+  if (interface_check != 0) { //in local interface
+    if (ip_packet->ip_p == ip_protocol_icmp) { //TO-DO: if ICMP echo request, checksum, then echo reply to the sending host
+
+      //TO-DO: figure the fuck out how to do the damn echo request here
+
+      uint16_t chksum_icmp = ntohs(cksum(ip_packet, sizeof(sr_arp_hdr_t)));
+      if (chksum_icmp != ntohs(ip_packet->ip_sum)) {
+        printf("Checksum invalid. Sending error.\n");
+        return;
+      }
+    }
+    else { 
+      printf("Port unreachable.\n");
+      //TO-DO: send message to the sending host
+    }
+  }
+    
+  //if not within network/destined elsewhere
+
+  //check min length and checksum of the packet
+  if (ip_len < sizeof(sr_ip_hdr_t)) { 
+    printf("Packet length not valid\n");
+    return; //discard packet
+  }
+  //calculate checksum and check if it matches checksum from header
+  uint16_t chksum_calc = ntohs(cksum(ip_packet, sizeof(sr_ip_hdr_t)));
+
+  if (chksum_calc != ntohs(ip_packet->ip_sum)) {
+    printf("Packet checksum incorrect.\n");
+    return; //discard packet
+  }
+  else { //checksum matched
+    uint16_t TTL = ip_packet->ip_ttl; //decrement the ttl by 1
+    if (TTL <= 1) { //if the TTL field is zero, then discard packet 
+      printf("Packet discarded. Time exceeded.\n");
+      //TO-DO: send message back to source address -> int sr_send_packet(struct sr_instance* sr, uint8_t* buf, unsigned int len, const char* iface)
+      return;
+    }
+    //if TTL != zero
+    else {
+      ip_packet->ip_sum = ntohs(cksum(ip_packet, sizeof(sr_ip_hdr_t)));
+      ip_packet->ip_ttl = TTL - 1; //decrement the ttl by 1
+      
+    }
+      //find out which entry in the routing table has the longest prefix match with the destination IP address
+
+    }
+
+    }
 
 
 
-}/* end sr_ForwardPacket */
+
+
+/* end sr_ForwardPacket */
 
 
 
