@@ -121,9 +121,11 @@ void sr_handlepacket(struct sr_instance* sr,
 	  switch (arp_packet->ar_op) {
 	  case arp_op_request:
 		  printf("ARP request.\n");
+		  send_arp_reply(sr, arp_packet, interface);
 		  break;
 	  case arp_op_reply:
 		  printf("ARP reply.\n")
+		  //handle_arp_reply
 		  break;
 	  default:
 		  printf("Unknown ARP opcode.\n")
@@ -131,7 +133,12 @@ void sr_handlepacket(struct sr_instance* sr,
 	  }
   }
 
-
+void send_arp_reply(struct sr_instance* sr, sr_arp_hdr_t* arp_packet, struct sr_if* interface) {
+	// Malloc header space.
+	uint8_t mem_block = malloc(sizeof(sr_arp_hdr_t) + sizeof(sr_ethernet_hdr_t));
+	sr_arp_hdr_t* arp_header = (sr_arp_hdr_t*)mem_block+sizeof(sr_ethernet_hdr_t);
+	sr_ethernet_hdr_t* ethernet_header = (sr_ethernet_hdr_t*)block;
+}
 
 
   //IP 
