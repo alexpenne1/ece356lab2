@@ -122,7 +122,7 @@ void sr_handlepacket(struct sr_instance* sr,
 	  switch (arp_packet->ar_op) {
 	  case arp_op_request:
 		  printf("ARP request.\n");
-		  send_arp_reply(sr, arp_packet, interface);
+		  send_arp_reply(sr, arp_packet, interface); // DONE
 		  break;
 	  case arp_op_reply:
 		  printf("ARP reply.\n");
@@ -156,7 +156,10 @@ void send_arp_reply(struct sr_instance* sr, sr_arp_hdr_t* arp_packet, struct sr_
 
 	// Try to send packet.
 	int success = sr_send_packet(sr, mem_block, sizeof(sr_arp_hdr_t)+sizeof(sr_ethernet_hdr_t), interface->name);
-
+	if (success!=0) {
+		printf("sr_send_packet error when trying to send ARP reply.\n");
+	}
+	free(mem_block);
 
 }
 
