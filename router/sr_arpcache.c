@@ -62,7 +62,7 @@ void sr_arpcache_sweepreqs(struct sr_instance *sr) {
 					// TODO: send icmp packet
 					// Destory request.
 					sr_arpreq_destroy(&sr->cache, current_requests);
-					printf("Request timed out.");'
+					printf("Request timed out.");
 				} else {
 					current_requests->times_sent++;
 					current_requests->sent = time(0);
@@ -70,6 +70,7 @@ void sr_arpcache_sweepreqs(struct sr_instance *sr) {
 					sr_send_arp_request(sr, current_requests);
 					// Get next request.
 					current_requests = current_requests->next;
+                    
 				}
 			}
 		}

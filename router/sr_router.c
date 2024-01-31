@@ -186,13 +186,17 @@ void send_arp_reply(struct sr_instance* sr, sr_arp_hdr_t* arp_packet, struct sr_
               //if not in the cache then send ARP request
                 //if no response, send "Destination host unreachable"
 
+  struct* searchRT() {
+    
+  }
+
   void sr_handle_ip(struct sr_instance* sr, uint8_t* ip_buffer, char* ip_interface, unsigned int ip_len) {
 
   printf("Handling IP...\n");
     
   sr_ip_hdr_t* ip_packet = (sr_ip_hdr_t*) ip_buffer;
-  uint32_t dest_addr = ip_packet->ip_dst;
-  uint32_t source_addr = ip_packet->ip_src; 
+  uint32_t dest_addr = ntohs(ip_packet->ip_dst);
+  uint32_t source_addr = ntohs(ip_packet->ip_src); 
 
   //check if address is within network (sr_if.c/h) <- instance at member if_list
   struct sr_if* interface_check = sr->if_list;
@@ -213,10 +217,8 @@ void send_arp_reply(struct sr_instance* sr, sr_arp_hdr_t* arp_packet, struct sr_
     }
   }
     
-  //if not within network/destined elsewhere
-
-  //check min length and checksum of the packet
-  if (ip_len < sizeof(sr_ip_hdr_t)) { 
+  /*if not within network/destined elsewhere*/
+  if (ip_len < sizeof(sr_ip_hdr_t)) { //check min length and checksum of the packet
     printf("Packet length not valid\n");
     return; //discard packet
   }
@@ -236,11 +238,17 @@ void send_arp_reply(struct sr_instance* sr, sr_arp_hdr_t* arp_packet, struct sr_
     }
     //if TTL != zero
     else {
-      ip_packet->ip_sum = ntohs(cksum(ip_packet, sizeof(sr_ip_hdr_t)));
+      ip_packet->ip_sum = ntohs(cksum(ip_packet, sizeof(sr_ip_hdr_t))); //recalculate checksum
       ip_packet->ip_ttl = TTL - 1; //decrement the ttl by 1
-      
+
+      /*find out which entry in the routing table has the longest prefix match with the destination IP address*/
+      printf("Loading routing table from server.\n");
+      struct sr_rt* in_rt; 
+      ir_rt = searchRT(sr);
+
+      sr->routing_table;
+
     }
-      //find out which entry in the routing table has the longest prefix match with the destination IP address
 
     }
 
