@@ -91,7 +91,7 @@ void sr_send_arp_request(struct sr_instance* sr, struct sr_arpreq* arp_request) 
 	arp_header->ar_pro = htons(0x0800);
 	arp_header->ar_op = htons(arp_op_request);
 	// Need source interface.
-	struct sr_if* source_interface = sr_get_interface(sr,  arp_request->packets->iface);
+	struct sr_if* source_interface = sr_get_interface(sr, arp_request->packets->iface);
 	memcpy(arp_header->ar_sha, source_interface->addr, ETHER_ADDR_LEN);
 	arp_header->ar_sip = source_interface->ip;
 	arp_header->ar_tha = 255;

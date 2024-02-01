@@ -168,17 +168,17 @@ void send_arp_reply(struct sr_instance* sr, sr_arp_hdr_t* arp_packet, struct sr_
 
   //DORIZ TO-DO: IP 
 
-  //check min length (if length is less than the size of the sr_protocols struct)
-    //checksum validation cksum from header (ip sum field)
-    //decrement the ttl by 1 then recompute the packet cksum over the modified header
-      //discard if checksum does not match
-    //check if ttl is less than one
+  //check min length (if length is less than the size of the sr_protocols struct) 
+    //checksum validation cksum from header (ip sum field) 
+    //decrement the ttl by 1 then recompute the packet cksum over the modified header 
+      //discard if checksum does not match 
+    //check if ttl is less than one 
       //if <= 1 -> send ICMP packet "Time Exceeded"
-      // if >1, decrement ttl then cksum 
-      //obtain destination id then check if its in our local interface
-        //if in local interface <- check if ICMP or not
+      // if >1, decrement ttl then cksum  
+      //obtain destination id then check if its in our local interface 
+        //if in local interface <- check if ICMP or not 
           //if ckcsum is valid, send echo request (ping)
-          //else ignore the packet then send ICMP "Port Unreachable"
+          //else ignore the packet then send ICMP "Port Unreachable" 
         //else
           //check routing table for longest prefix match 
             //if no match, ICMP "Destination net unreachable"
@@ -186,8 +186,24 @@ void send_arp_reply(struct sr_instance* sr, sr_arp_hdr_t* arp_packet, struct sr_
               //if not in the cache then send ARP request
                 //if no response, send "Destination host unreachable"
 
-  struct* searchRT() {
-    
+  /*struct to search through routing table*/
+  struct sr_rt* search_rt(struct sr_instance* sr, struct in_addr addr) {
+
+    struct sr_rt* walker = sr->routing_table;
+    struct sr_rt* best_match = NULL;
+    struct sr_rt* next_hop;
+    uint32_t match_check = 0;
+
+    while (walker != 0) { //check if match
+      if ((addr.s_addr & walker->mask.s_addr) == (walker->dest.s_addr & walker->mask.s_addr)) { //check network address and destination address are a match
+        if(!best_match || walker->mask.s_addr >= match_check) {
+          match_check = walker->mask.s_addr;
+          best_match = walker;
+        }
+      }
+      walker = walker->next;
+    }
+    return best_match;
   }
 
   void sr_handle_ip(struct sr_instance* sr, uint8_t* ip_buffer, char* ip_interface, unsigned int ip_len) {
@@ -200,6 +216,9 @@ void send_arp_reply(struct sr_instance* sr, sr_arp_hdr_t* arp_packet, struct sr_
 
   //check if address is within network (sr_if.c/h) <- instance at member if_list
   struct sr_if* interface_check = sr->if_list;
+  if (interface_check != 0 && dest_addr != interface_check->ip) { 
+    interface_check = interface_check->next;
+  }
   if (interface_check != 0) { //in local interface
     if (ip_packet->ip_p == ip_protocol_icmp) { //TO-DO: if ICMP echo request, checksum, then echo reply to the sending host
 
@@ -210,14 +229,14 @@ void send_arp_reply(struct sr_instance* sr, sr_arp_hdr_t* arp_packet, struct sr_
         printf("Checksum invalid. Sending error.\n");
         return;
       }
-    }
-    else { 
-      printf("Port unreachable.\n");
-      //TO-DO: send message to the sending host
+      else { 
+        printf("Port unreachable.\n");
+        //TO-DO: send message to the sending host
+      }
     }
   }
-    
   /*if not within network/destined elsewhere*/
+  else {
   if (ip_len < sizeof(sr_ip_hdr_t)) { //check min length and checksum of the packet
     printf("Packet length not valid\n");
     return; //discard packet
@@ -243,16 +262,26 @@ void send_arp_reply(struct sr_instance* sr, sr_arp_hdr_t* arp_packet, struct sr_
 
       /*find out which entry in the routing table has the longest prefix match with the destination IP address*/
       printf("Loading routing table from server.\n");
-      struct sr_rt* in_rt; 
-      ir_rt = searchRT(sr);
-
-      sr->routing_table;
+      struct in_addr ip_check;
+      ip_check.s_addr = ip_packet->ip_dst;
+      struct sr_rt* next_hop_ip = search_rt(sr, ip_check);
+      if (next_hop_ip == 0) {
+        printf("Next hop not found.\n");
+        return; //discard packet
+      }
+      //check arp cache for the next MAC address corresponding to the next-hop IP 
+      printf("Searching for next hop MAC address.\n");
+      uint32_t nh_addr = next_hop_ip->dest.s_addr;
+      struct sr_arpentry* cache_check = sr_arpcache_sweepreqs(sr); //i'm assuming that sr_arpcache_sweepreqs handles everything
+      }
 
     }
 
-    }
+  }
 
-    }
+}
+
+
 
 
 
