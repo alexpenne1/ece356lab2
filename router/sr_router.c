@@ -186,26 +186,6 @@ void send_arp_reply(struct sr_instance* sr, sr_arp_hdr_t* arp_packet, struct sr_
               //if not in the cache then send ARP request
                 //if no response, send "Destination host unreachable"
 
-  /*struct to search through routing table*/
-  struct sr_rt* search_rt(struct sr_instance* sr, struct in_addr addr) {
-
-    struct sr_rt* walker = sr->routing_table;
-    struct sr_rt* best_match = NULL;
-    struct sr_rt* next_hop;
-    uint32_t match_check = 0;
-
-    while (walker != 0) { //check if match
-      if ((addr.s_addr & walker->mask.s_addr) == (walker->dest.s_addr & walker->mask.s_addr)) { //check network address and destination address are a match
-        if(!best_match || walker->mask.s_addr >= match_check) {
-          match_check = walker->mask.s_addr;
-          best_match = walker;
-        }
-      }
-      walker = walker->next;
-    }
-    return best_match;
-  }
-
   void sr_handle_ip(struct sr_instance* sr, uint8_t* ip_buffer, char* ip_interface, unsigned int ip_len) {
 
   printf("Handling IP...\n");
@@ -222,17 +202,17 @@ void send_arp_reply(struct sr_instance* sr, sr_arp_hdr_t* arp_packet, struct sr_
   if (interface_check != 0) { //in local interface
     if (ip_packet->ip_p == ip_protocol_icmp) { //TO-DO: if ICMP echo request, checksum, then echo reply to the sending host
 
-      //TO-DO: figure the fuck out how to do the damn echo request here
-
       uint16_t chksum_icmp = ntohs(cksum(ip_packet, sizeof(sr_arp_hdr_t)));
       if (chksum_icmp != ntohs(ip_packet->ip_sum)) {
         printf("Checksum invalid. Sending error.\n");
         return;
       }
       else { 
-        printf("Port unreachable.\n");
         //TO-DO: send message to the sending host
+        send_icmp_exception(sr, 3, 3, ip_packet, ip_buffer, ip_interface);
       }
+      //TO-DO: figure out how to do the damn echo request here
+      send_icmp_reply(sr, 0, NULL, ip_packet, ip_buffer, ip_interface);
     }
   }
   /*if not within network/destined elsewhere*/
@@ -251,8 +231,7 @@ void send_arp_reply(struct sr_instance* sr, sr_arp_hdr_t* arp_packet, struct sr_
   else { //checksum matched
     uint16_t TTL = ip_packet->ip_ttl; //decrement the ttl by 1
     if (TTL <= 1) { //if the TTL field is zero, then discard packet 
-      printf("Packet discarded. Time exceeded.\n");
-      //TO-DO: send message back to source address -> int sr_send_packet(struct sr_instance* sr, uint8_t* buf, unsigned int len, const char* iface)
+      send_icmp_exception(sr, 11, NULL, ip_packet, ip_buffer, ip_interface); //time exceeded
       return;
     }
     //if TTL != zero
@@ -267,19 +246,178 @@ void send_arp_reply(struct sr_instance* sr, sr_arp_hdr_t* arp_packet, struct sr_
       struct sr_rt* next_hop_ip = search_rt(sr, ip_check);
       if (next_hop_ip == 0) {
         printf("Next hop not found.\n");
+        send_icmp_exception(sr, 3, 0, ip_packet, ip_buffer, ip_interface); //port unreachable
         return; //discard packet
       }
       //check arp cache for the next MAC address corresponding to the next-hop IP 
       printf("Searching for next hop MAC address.\n");
       uint32_t nh_addr = next_hop_ip->dest.s_addr;
       struct sr_arpentry* cache_check = sr_arpcache_sweepreqs(sr); //i'm assuming that sr_arpcache_sweepreqs handles everything
+      //TO-DO: Need to figure out how to accomodate type 3, code 1
       }
-
     }
-
   }
+}
+
+
+
+
+
+/*struct to search through routing table*/
+struct sr_rt* search_rt(struct sr_instance* sr, struct in_addr addr) {
+
+  struct sr_rt* walker = sr->routing_table;
+  struct sr_rt* best_match = NULL;
+  struct sr_rt* next_hop;
+  uint32_t match_check = 0;
+
+  while (walker != 0) { //check if match
+    if ((addr.s_addr & walker->mask.s_addr) == (walker->dest.s_addr & walker->mask.s_addr)) { //check network address and destination address are a match
+      if(!best_match || walker->mask.s_addr >= match_check) {
+        match_check = walker->mask.s_addr;
+        best_match = walker;
+      }
+    }
+    walker = walker->next;
+  }
+  return best_match;
+}
+
+
+/*Note to Alex: If anything breaks or cannot compile correctly, I guareentee it's from the ICMP protocols <3*/
+
+//copy the contents of the ip packet 
+  //modify the header in the packet
+  //add the destination once again
+  //include icmp header after the ip protcol number
+
+  //icmp packet: type->code->checksum ; pointer to the problem ; original ip header
+
+
+/*generate icmpp echo reply*/
+int send_icmp_reply(struct sr_instance* sr, uint8_t type, uint8_t code, sr_ip_hdr_t* packet, uint8_t* buf, struct sr_if* interface) {
+  uint8_t client_memory = malloc(sizeof(sr_ip_hdr_t)+sizeof(sr_icmp_hdr_t));
+  sr_ip_hdr_t* ip_header = (sr_ip_hdr_t*)(client_memory+sizeof(sr_ip_hdr_t));
+
+  /*populate ip header*/
+	ip_header->ip_tos = 0x0000;
+	ip_header->ip_len = sizeof(sr_ip_hdr_t) + sizeof(sr_icmp_t3_hdr_t);
+	ip_header->ip_id = 4;
+	ip_header->ip_off = IP_RF;
+	ip_header->ip_ttl = IP_TTL;
+	ip_header->ip_p = ip_protocol_icmp;
+	ip_header->ip_src = packet->ip_src;
+	ip_header->ip_dst = packet->ip_dst;
+	ip_header->ip_sum = 0;
+	ip_header->ip_sum = cksum(ip_header, sizeof(sr_ip_hdr_t));
+
+  /*populate icmp header*/
+  sr_icmp_t3_hdr_t* icmp_header = (sr_ethernet_hdr_t*)client_memory;
+	uint32_t icmp_hlen = sizeof(sr_icmp_hdr_t);
+	icmp_header = malloc(icmp_hlen);
+	icmp_header->icmp_type = 0;
+	icmp_header->icmp_code = 0;
+	icmp_header->unused = 0;
+	memcpy(icmp_header->data, buf, ICMP_DATA_SIZE);
+	icmp_header->icmp_sum = 0;
+	icmp_header->icmp_sum = cksum(icmp_header, icmp_hlen);
+
+	uint32_t len = sizeof(sr_ip_hdr_t) + icmp_hlen;
+	uint8_t* buf = malloc(len);
+	memcpy(buf, ip_header, sizeof(sr_ip_hdr_t));
+	memcpy(buf + sizeof(sr_ip_hdr_t), icmp_header, icmp_hlen);
+
+	int sreply = sr_send_packet(sr, client_memory, sizeof(sr_ip_hdr_t)+sizeof(sr_icmp_hdr_t), interface->name);
+	
+	free(icmp_header);
+	free(ip_header);
+
+	return sreply;
+
+
 
 }
+
+int send_icmp_exception(struct sr_instance* sr, uint8_t type, uint8_t code, sr_ip_hdr_t* packet, uint8_t* buf, struct sr_if* interface) {
+
+  uint8_t client_memory = malloc(sizeof(sr_ip_hdr_t)+sizeof(sr_ethernet_hdr_t));
+  sr_ip_hdr_t* ip_header = (sr_ip_hdr_t*)(client_memory+sizeof(sr_ip_hdr_t));
+
+
+   /*populate ip header*/
+	ip_header->ip_tos = 0x0000;
+	ip_header->ip_len = sizeof(sr_ip_hdr_t) + sizeof(sr_icmp_t3_hdr_t);
+	ip_header->ip_id = 4;
+	ip_header->ip_off = IP_RF;
+	ip_header->ip_ttl = IP_TTL;
+	ip_header->ip_p = ip_protocol_icmp;
+	ip_header->ip_src = packet->ip_src;
+	ip_header->ip_dst = packet->ip_dst;
+	ip_header->ip_sum = 0;
+	ip_header->ip_sum = cksum(ip_header, sizeof(sr_ip_hdr_t));
+
+  /*populate icmp header*/
+  sr_icmp_t3_hdr_t* icmp_error = (sr_ethernet_hdr_t*)client_memory;
+	uint32_t icmp_hlen = sizeof(sr_icmp_hdr_t);
+	icmp_error = malloc(icmp_hlen);
+	icmp_error->unused = 0;
+	memcpy(icmp_error->data, buf, ICMP_DATA_SIZE);
+	icmp_error->icmp_sum = 0;
+	icmp_error->icmp_sum = cksum(icmp_error, icmp_hlen);
+
+  switch (type) {
+  case (3): //the unreachable
+    sr_icmp_t3_hdr_t* icmp_error = (sr_ethernet_hdr_t*)client_memory;
+    icmp_error->icmp_type = 3;
+    if (code ==  0) {
+      printf("Destination net unreachable");
+      icmp_error->icmp_code = 0;
+    }
+    if (code == 1) {
+      printf("Destination net unreachable");
+      icmp_error->icmp_code = 1;
+    }
+    if (code == 3) {
+      printf("Port unreachable");
+      icmp_error->icmp_code = 3;
+    }
+    break;
+
+  case (11):
+    printf("Time exceeded");
+    icmp_error->icmp_type = 11;
+    icmp_error->icmp_code = 0;
+    break;
+
+  default:
+    /*Nothing should happen <- Error*/
+    break;
+
+  uint32_t len = sizeof(sr_ip_hdr_t) + icmp_hlen;
+	uint8_t* buf = malloc(len);
+	memcpy(buf, ip_header, sizeof(sr_ip_hdr_t));
+	memcpy(buf + sizeof(sr_ip_hdr_t), icmp_error, icmp_hlen);
+
+  int serror = sr_send_packet(sr, client_memory, sizeof(sr_ip_hdr_t)+sizeof(sr_icmp_hdr_t), interface->name);
+	if (serror != 0 ) {
+    printf("sr_send_packet error when trying to send ARP reply.\n");
+  }
+
+	free(icmp_error);
+	free(ip_header);
+
+	return serror;
+  }
+}
+
+
+// Echo reply (type 0) Sent in response to an echo request (ping) to one of the router's interfaces. (This is only for echo requests to any of the router's IPs. An echo request sent elsewhere should be forwarded to the next hop address as usual.)
+// Destination net unreachable (type 3, code 0) ** Sent if there is a non-existent route to the destination IP (no matching entry in routing table when forwarding an IP packet).
+// Destination host unreachable (type 3, code 1) ** Sent if five ARP requests were sent to the next-hop IP without a response.
+// Port unreachable (type 3, code 3) ** Sent if an IP packet containing a UDP or TCP payload is sent to one of the router's interfaces. This is needed for traceroute to work.
+// Time exceeded (type 11, code 0) ** Sent if an IP packet is discarded during processing because the TTL field is 0. 
+// This is also needed for traceroute to work. The source address of an ICMP message can be the source address of any of the incoming interfaces, as specified in RFC 792. 
+// As mentioned above, the only incoming ICMP message destined towards the router's IPs that you have to explicitly process are ICMP echo requests. You may want to create additional structs for ICMP messages for convenience, but make sure to use the packed attribute so that the compiler doesn't try to align the fields in the struct to word boundaries:
 
 
 
