@@ -96,8 +96,8 @@ void sr_handlepacket(struct sr_instance* sr,
   default:
 	  printf("Unknown ethertype.\n");
 	  return;
-  }
-  }
+  } // end switch
+} // end sr_handlepacket
 
   // ARP PSEUDOCODE:
   //ARP
@@ -132,8 +132,8 @@ void sr_handlepacket(struct sr_instance* sr,
 		  // put into cache
 		  sr_arpcache_insert(&sr->cache, arp_packet->ar_sha, arp_packet->ar_sip);
 		  return;
-	  }
-  }
+	  } // end switch
+  } // end handle arp
 
 void send_arp_reply(struct sr_instance* sr, sr_arp_hdr_t* arp_packet, struct sr_if* interface) {
 	// Malloc header space.
@@ -160,10 +160,10 @@ void send_arp_reply(struct sr_instance* sr, sr_arp_hdr_t* arp_packet, struct sr_
 	int success = sr_send_packet(sr, mem_block, sizeof(sr_arp_hdr_t)+sizeof(sr_ethernet_hdr_t), interface->name);
 	if (success!=0) {
 		printf("sr_send_packet error when trying to send ARP reply.\n");
-	}
+	} // end if 
 	free(mem_block);
 
-}
+} // end send arp reply
 
 
   //DORIZ TO-DO: IP 
@@ -198,7 +198,7 @@ void send_arp_reply(struct sr_instance* sr, sr_arp_hdr_t* arp_packet, struct sr_
   struct sr_if* interface_check = sr->if_list;
   if (interface_check != 0 && dest_addr != interface_check->ip) { 
     interface_check = interface_check->next;
-  }
+  } // end if
   if (interface_check != 0) { //in local interface
     if (ip_packet->ip_p == ip_protocol_icmp) { //TO-DO: if ICMP echo request, checksum, then echo reply to the sending host
 
@@ -206,34 +206,34 @@ void send_arp_reply(struct sr_instance* sr, sr_arp_hdr_t* arp_packet, struct sr_
       if (chksum_icmp != ntohs(ip_packet->ip_sum)) {
         printf("Checksum invalid. Sending error.\n");
         return;
-      }
+      } // end if
       else { 
         //TO-DO: send message to the sending host
         send_icmp_exception(sr, 3, 3, ip_packet, ip_buffer, ip_interface);
-      }
+      } // end else if
       //TO-DO: figure out how to do the damn echo request here
       send_icmp_reply(sr, 0, NULL, ip_packet, ip_buffer, ip_interface);
-    }
-  }
+    } // end if
+  } // end if
   /*if not within network/destined elsewhere*/
   else {
   if (ip_len < sizeof(sr_ip_hdr_t)) { //check min length and checksum of the packet
     printf("Packet length not valid\n");
     return; //discard packet
-  }
+  } // end if
   //calculate checksum and check if it matches checksum from header
   uint16_t chksum_calc = ntohs(cksum(ip_packet, sizeof(sr_ip_hdr_t)));
 
   if (chksum_calc != ntohs(ip_packet->ip_sum)) {
     printf("Packet checksum incorrect.\n");
     return; //discard packet
-  }
+  } // end if
   else { //checksum matched
     uint16_t TTL = ip_packet->ip_ttl; //decrement the ttl by 1
     if (TTL <= 1) { //if the TTL field is zero, then discard packet 
       send_icmp_exception(sr, 11, NULL, ip_packet, ip_buffer, ip_interface); //time exceeded
       return;
-    }
+    } // end if
     //if TTL != zero
     else {
       ip_packet->ip_sum = ntohs(cksum(ip_packet, sizeof(sr_ip_hdr_t))); //recalculate checksum
@@ -248,16 +248,16 @@ void send_arp_reply(struct sr_instance* sr, sr_arp_hdr_t* arp_packet, struct sr_
         printf("Next hop not found.\n");
         send_icmp_exception(sr, 3, 0, ip_packet, ip_buffer, ip_interface); //port unreachable
         return; //discard packet
-      }
+      } // end if
       //check arp cache for the next MAC address corresponding to the next-hop IP 
       printf("Searching for next hop MAC address.\n");
       uint32_t nh_addr = next_hop_ip->dest.s_addr;
       struct sr_arpentry* cache_check = sr_arpcache_sweepreqs(sr); //i'm assuming that sr_arpcache_sweepreqs handles everything
       //TO-DO: Need to figure out how to accomodate type 3, code 1
-      }
-    }
-  }
-}
+      } // end if
+    } // end if
+  } // end if
+} // end sr handle ip
 
 
 
@@ -392,7 +392,7 @@ int send_icmp_exception(struct sr_instance* sr, uint8_t type, uint8_t code, sr_i
   default:
     /*Nothing should happen <- Error*/
     break;
-
+  }
   uint32_t len = sizeof(sr_ip_hdr_t) + icmp_hlen;
 	uint8_t* buf = malloc(len);
 	memcpy(buf, ip_header, sizeof(sr_ip_hdr_t));
@@ -407,7 +407,7 @@ int send_icmp_exception(struct sr_instance* sr, uint8_t type, uint8_t code, sr_i
 	free(ip_header);
 
 	return serror;
-  }
+  
 }
 
 
