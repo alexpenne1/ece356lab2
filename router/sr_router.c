@@ -201,7 +201,6 @@ void send_arp_reply(struct sr_instance* sr, sr_arp_hdr_t* arp_packet, char* inte
     
   sr_ip_hdr_t* ip_packet = (sr_ip_hdr_t*) ip_buffer;
   uint32_t dest_addr = ntohs(ip_packet->ip_dst);
-  uint32_t source_addr = ntohs(ip_packet->ip_src); 
 
   /* check if address is within network (sr_if.c/h) <- instance at member if_list */
   struct sr_if* interface_check = sr->if_list;
@@ -278,7 +277,6 @@ struct sr_rt* search_rt(struct sr_instance* sr, struct in_addr addr) {
 
   struct sr_rt* walker = sr->routing_table;
   struct sr_rt* best_match = NULL;
-  struct sr_rt* next_hop;
   uint32_t match_check = 0;
 
   while (walker != 0) { /*check if match*/
@@ -333,7 +331,7 @@ int send_icmp_reply(struct sr_instance* sr, uint8_t type, uint8_t code, sr_ip_hd
 	icmp_header->icmp_sum = cksum(icmp_header, icmp_hlen);
 
 	uint32_t len = sizeof(sr_ip_hdr_t) + icmp_hlen;
-	uint8_t* buf = malloc(len);
+	buf = malloc(len);
 	memcpy(buf, ip_header, sizeof(sr_ip_hdr_t));
 	memcpy(buf + sizeof(sr_ip_hdr_t), icmp_header, icmp_hlen);
 
@@ -404,7 +402,7 @@ int send_icmp_exception(struct sr_instance* sr, uint8_t type, uint8_t code, sr_i
     break;
   }
   uint32_t len = sizeof(sr_ip_hdr_t) + icmp_hlen;
-	uint8_t* buf = malloc(len);
+	buf = malloc(len);
 	memcpy(buf, ip_header, sizeof(sr_ip_hdr_t));
 	memcpy(buf + sizeof(sr_ip_hdr_t), icmp_error, icmp_hlen);
 
