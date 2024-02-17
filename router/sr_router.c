@@ -384,7 +384,7 @@ int send_icmp_exception(struct sr_instance* sr, uint8_t type, uint8_t code, sr_i
       icmp_error->icmp_code = 0;
     }
     if (code == 1) {
-      printf("Destination net unreachable");
+      printf("Destination host unreachable");
       icmp_error->icmp_code = 1;
     }
     if (code == 3) {
