@@ -372,10 +372,10 @@ int send_icmp_exception(struct sr_instance* sr, uint8_t type, uint8_t code, sr_i
 	memcpy(icmp_error->data, buf, ICMP_DATA_SIZE);
 	icmp_error->icmp_sum = 0;
 	icmp_error->icmp_sum = cksum(icmp_error, icmp_hlen);
-
+	
   switch (type) {
   case (3): /*the unreachable*/
-    sr_icmp_t3_hdr_t* icmp_error = (sr_icmp_t3_hdr_t*)client_memory;
+    
     icmp_error->icmp_type = 3;
     if (code ==  0) {
       printf("Destination net unreachable");
