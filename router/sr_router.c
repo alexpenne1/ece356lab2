@@ -215,14 +215,14 @@ void send_arp_reply(struct sr_instance* sr, sr_arp_hdr_t* arp_packet, char* inte
       if (chksum_icmp != ntohs(ip_packet->ip_sum)) {
         printf("Checksum invalid. Sending error.\n");
         return;
+      }  
+      else {
+        send_icmp_reply(sr, 0, 9, ip_packet, ip_buffer, (struct sr_if*)ip_interface);
+      }
+    }
+    else { 
+        send_icmp_exception(sr, 3, 3, ip_packet, ip_buffer, (struct sr_if*)ip_interface); /*send an exception is UDP or TCP payload is sent to one of the interfaces*/
       } 
-      else { 
-        /* TO-DO: send message to the sending host */
-        send_icmp_exception(sr, 3, 3, ip_packet, ip_buffer, (struct sr_if*)ip_interface);
-      } 
-      /*TO-DO: figure out how to do the damn echo request here */
-      send_icmp_reply(sr, 0, 9, ip_packet, ip_buffer, (struct sr_if*)ip_interface);
-    } 
   } 
   /*if not within network/destined elsewhere*/
   else {
