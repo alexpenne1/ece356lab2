@@ -60,6 +60,7 @@ void sr_arpcache_sweepreqs(struct sr_instance *sr) {
 				if (current_requests->times_sent > 4) {
 					// Sent the max times.
 					// TODO: send icmp packet
+					//send_icmp_exception(&sr, 3, 1, current_packets, )
 					// Destory request.
 					sr_arpreq_destroy(&sr->cache, current_requests);
 					printf("Request timed out.");
