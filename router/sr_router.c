@@ -221,7 +221,7 @@ void send_arp_reply(struct sr_instance* sr, sr_arp_hdr_t* arp_packet, char* inte
         send_icmp_exception(sr, 3, 3, ip_packet, ip_buffer, (struct sr_if*)ip_interface);
       } 
       /*TO-DO: figure out how to do the damn echo request here */
-      send_icmp_reply(sr, 0, NULL, ip_packet, ip_buffer, (struct sr_if*)ip_interface);
+      send_icmp_reply(sr, 0, 9, ip_packet, ip_buffer, (struct sr_if*)ip_interface);
     } 
   } 
   /*if not within network/destined elsewhere*/
@@ -240,7 +240,7 @@ void send_arp_reply(struct sr_instance* sr, sr_arp_hdr_t* arp_packet, char* inte
   else { /*checksum matched*/
     uint16_t TTL = ip_packet->ip_ttl; /*decrement the ttl by 1*/
     if (TTL <= 1) { /*if the TTL field is zero, then discard packet */
-      send_icmp_exception(sr, 11, NULL, ip_packet, ip_buffer, ip_interface); /*time exceeded*/
+      send_icmp_exception(sr, 11, 9, ip_packet, ip_buffer, (struct sr_if *)ip_interface); /*time exceeded*/
       return;
     } 
     /*if TTL != zero */
@@ -255,13 +255,14 @@ void send_arp_reply(struct sr_instance* sr, sr_arp_hdr_t* arp_packet, char* inte
       struct sr_rt* next_hop_ip = search_rt(sr, ip_check);
       if (next_hop_ip == 0) {
         printf("Next hop not found.\n");
-        send_icmp_exception(sr, 3, 0, ip_packet, ip_buffer, ip_interface); /*port unreachable*/
+        send_icmp_exception(sr, 3, 0, ip_packet, ip_buffer, (struct sr_if*)ip_interface); /*port unreachable*/
         return; /*discard packet*/
       } 
       /*check arp cache for the next MAC address corresponding to the next-hop IP */
       printf("Searching for next hop MAC address.\n");
       uint32_t nh_addr = next_hop_ip->dest.s_addr;
-      struct sr_arpentry* cache_check = sr_arpcache_sweepreqs(sr); /*i'm assuming that sr_arpcache_sweepreqs handles everything */
+      struct sr_arpreq* cache_req = sr_arpcache_queuereq(&(sr->cache), nh_addr, (uint8_t*)ip_packet, ip_len, ip_interface); /*i'm assuming that sr_arpcache_sweepreqs handles everything */
+      
       /*TO-DO: Need to figure out how to accomodate type 3, code 1*/
     	}
   	} 
@@ -281,7 +282,7 @@ struct sr_rt* search_rt(struct sr_instance* sr, struct in_addr addr) {
   uint32_t match_check = 0;
 
   while (walker != 0) { /*check if match*/
-    if ((addr.s_addr & walker->mask.s_addr) == (walker->dest.s_addr & walker->mask.s_addr)) { //check network address and destination address are a match
+    if ((addr.s_addr & walker->mask.s_addr) == (walker->dest.s_addr & walker->mask.s_addr)) { /*check network address and destination address are a match*/
       if(!best_match || walker->mask.s_addr >= match_check) {
         match_check = walker->mask.s_addr;
         best_match = walker;
@@ -305,7 +306,7 @@ struct sr_rt* search_rt(struct sr_instance* sr, struct in_addr addr) {
 */
 /*generate icmpp echo reply*/
 int send_icmp_reply(struct sr_instance* sr, uint8_t type, uint8_t code, sr_ip_hdr_t* packet, uint8_t* buf, struct sr_if* interface) {
-  uint8_t client_memory = malloc(sizeof(sr_ip_hdr_t)+sizeof(sr_icmp_hdr_t));
+  uint8_t* client_memory = (uint8_t*) malloc(sizeof(sr_ip_hdr_t)+sizeof(sr_icmp_hdr_t));
   sr_ip_hdr_t* ip_header = (sr_ip_hdr_t*)(client_memory+sizeof(sr_ip_hdr_t));
 
   /*populate ip header*/
@@ -321,7 +322,7 @@ int send_icmp_reply(struct sr_instance* sr, uint8_t type, uint8_t code, sr_ip_hd
 	ip_header->ip_sum = cksum(ip_header, sizeof(sr_ip_hdr_t));
 
   /*populate icmp header*/
-  sr_icmp_t3_hdr_t* icmp_header = (sr_ethernet_hdr_t*)client_memory;
+  sr_icmp_t3_hdr_t* icmp_header = (sr_icmp_t3_hdr_t*)client_memory;
 	uint32_t icmp_hlen = sizeof(sr_icmp_hdr_t);
 	icmp_header = malloc(icmp_hlen);
 	icmp_header->icmp_type = 0;
@@ -349,7 +350,7 @@ int send_icmp_reply(struct sr_instance* sr, uint8_t type, uint8_t code, sr_ip_hd
 
 int send_icmp_exception(struct sr_instance* sr, uint8_t type, uint8_t code, sr_ip_hdr_t* packet, uint8_t* buf, struct sr_if* interface) {
 
-  uint8_t client_memory = malloc(sizeof(sr_ip_hdr_t)+sizeof(sr_ethernet_hdr_t));
+  uint8_t* client_memory = (uint8_t*) malloc(sizeof(sr_ip_hdr_t)+sizeof(sr_ethernet_hdr_t));
   sr_ip_hdr_t* ip_header = (sr_ip_hdr_t*)(client_memory+sizeof(sr_ip_hdr_t));
 
 
@@ -366,7 +367,7 @@ int send_icmp_exception(struct sr_instance* sr, uint8_t type, uint8_t code, sr_i
 	ip_header->ip_sum = cksum(ip_header, sizeof(sr_ip_hdr_t));
 
   /*populate icmp header*/
-  sr_icmp_t3_hdr_t* icmp_error = (sr_ethernet_hdr_t*)client_memory;
+  sr_icmp_t3_hdr_t* icmp_error = (sr_icmp_t3_hdr_t*)client_memory;
 	uint32_t icmp_hlen = sizeof(sr_icmp_hdr_t);
 	icmp_error = malloc(icmp_hlen);
 	icmp_error->unused = 0;
@@ -376,7 +377,7 @@ int send_icmp_exception(struct sr_instance* sr, uint8_t type, uint8_t code, sr_i
 
   switch (type) {
   case (3): /*the unreachable*/
-    sr_icmp_t3_hdr_t* icmp_error = (sr_ethernet_hdr_t*)client_memory;
+    sr_icmp_t3_hdr_t* icmp_error = (sr_icmp_t3_hdr_t*)client_memory;
     icmp_error->icmp_type = 3;
     if (code ==  0) {
       printf("Destination net unreachable");
