@@ -152,7 +152,8 @@ void send_arp_reply(struct sr_instance* sr, sr_arp_hdr_t* arp_packet, char* inte
 	uint8_t* mem_block = (uint8_t*) malloc(sizeof(sr_arp_hdr_t) + sizeof(sr_ethernet_hdr_t));
 	sr_arp_hdr_t* arp_header = (sr_arp_hdr_t*)(mem_block+sizeof(sr_ethernet_hdr_t));
 	sr_ethernet_hdr_t* ethernet_header = (sr_ethernet_hdr_t*)mem_block;
-	struct sr_if* iface = (struct sr_if*) interface;
+	struct sr_if* ifacestruct = (struct sr_if*) interface;
+	struct sr_if* iface = sr_get_interface(sr, ifacestruct->name);
 	/* ARP header: */
 	arp_header->ar_op = htons(arp_op_reply); /* arp reply optype */
 	arp_header->ar_hrd = htons(arp_hrd_ethernet); /*  ethernet hardware */
