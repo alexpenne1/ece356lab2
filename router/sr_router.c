@@ -123,7 +123,7 @@ void sr_handlepacket(struct sr_instance* sr,
   void sr_handlearp(struct sr_instance* sr, uint8_t* arp_buffer, char* interface, unsigned int len) {
 
 	  printf("Handling ARP...\n");
-
+    
 	  /* Cast buffer to arp header struct type. */
 	  sr_arp_hdr_t* arp_packet = (sr_arp_hdr_t*) arp_buffer;
 	  enum sr_arp_opcode opcode = (enum sr_arp_opcode)ntohs(arp_packet->ar_op);
@@ -174,7 +174,7 @@ void send_arp_reply(struct sr_instance* sr, sr_arp_hdr_t* arp_packet, char* inte
 	/* Try to send packet. */
 	printf("Trying to send...");
 	int success = sr_send_packet(sr, mem_block, sizeof(sr_arp_hdr_t)+sizeof(sr_ethernet_hdr_t), iface->name);
-	printf("Tried to send.");
+	printf("ARP Sent.");
 	if (success!=0) {
 		printf("sr_send_packet error when trying to send ARP reply.\n");
 	} 
