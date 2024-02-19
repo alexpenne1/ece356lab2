@@ -53,6 +53,7 @@ void sr_arpcache_sweepreqs(struct sr_instance *sr) {
 			/* All packets sent. Need to destroy request. */
 			sr_arpreq_destroy(&sr->cache, current_requests);
 		} else {
+			printf("Cache miss.\n");
 			/* Cache miss. Need to resend ARP. */
 			if (difftime(time(0), current_requests->sent)>1) {
 				/* Been longer than a second. */
@@ -63,7 +64,7 @@ void sr_arpcache_sweepreqs(struct sr_instance *sr) {
 					/* send_icmp_exception(&sr, 3, 1, current_packets, ) */
 					/* Destory request. */
 					sr_arpreq_destroy(&sr->cache, current_requests);
-					printf("Request timed out.");
+					printf("Request timed out.\n");
 				} else {
 					current_requests->times_sent++;
 					current_requests->sent = time(0);
@@ -109,6 +110,8 @@ void sr_send_arp_request(struct sr_instance* sr, struct sr_arpreq* arp_request) 
 	int success = sr_send_packet(sr, mem_block, sizeof(sr_arp_hdr_t)+sizeof(sr_ethernet_hdr_t), source_interface->name);
 	if (success != 0) {
 		printf("Failed to send ARP request.");
+	} else {
+		printf("Sent ARP request.");
 	}
 	free(mem_block);
 }
@@ -154,7 +157,7 @@ struct sr_arpreq *sr_arpcache_queuereq(struct sr_arpcache *cache,
                                        char *iface)
 {
     pthread_mutex_lock(&(cache->lock));
-    
+    printf("Adding packet to queue...\n");
     struct sr_arpreq *req;
     for (req = cache->requests; req != NULL; req = req->next) {
         if (req->ip == ip) {

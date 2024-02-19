@@ -90,7 +90,7 @@ void sr_handlepacket(struct sr_instance* sr,
   assert(interface);
 
   printf("*** -> Received packet of length %d \n",len);
-
+  printf("Ethertype: %hx\n", ethertype(packet));
   /* Determine if IP or ARP packet from ethertype. (found in sr_protocol.h) */
   switch (ethertype(packet)) {
   case ethertype_ip:
@@ -126,18 +126,20 @@ void sr_handlepacket(struct sr_instance* sr,
 
 	  /* Cast buffer to arp header struct type. */
 	  sr_arp_hdr_t* arp_packet = (sr_arp_hdr_t*) arp_buffer;
-
+	  enum sr_arp_opcode opcode = (enum sr_arp_opcode)ntohs(arp_packet->ar_op);
 	  /* Determine if request or reply. */
-	  switch (arp_packet->ar_op) {
+	  switch (opcode) {
 	  case arp_op_request:
 		  printf("ARP request.\n");
 		  send_arp_reply(sr, arp_packet, interface); /* DONE */
 		  break;
 	  case arp_op_reply:
 		  printf("ARP reply.\n");
+		  sr_arpcache_insert(&sr->cache, arp_packet->ar_sha, arp_packet->ar_sip);
+		  /* what to do here*/
 		  break;
 	  default:
-		  printf("Unknown ARP opcode.\n");
+		  printf("Unknown ARP opcode: %hx\n", arp_packet->ar_op);
 		  /* put into cache */
 		  sr_arpcache_insert(&sr->cache, arp_packet->ar_sha, arp_packet->ar_sip);
 		  return;
@@ -146,10 +148,11 @@ void sr_handlepacket(struct sr_instance* sr,
 
 void send_arp_reply(struct sr_instance* sr, sr_arp_hdr_t* arp_packet, char* interface) {
 	/* Malloc header space. */
+	printf("Sending arp reply...");
 	uint8_t* mem_block = (uint8_t*) malloc(sizeof(sr_arp_hdr_t) + sizeof(sr_ethernet_hdr_t));
 	sr_arp_hdr_t* arp_header = (sr_arp_hdr_t*)(mem_block+sizeof(sr_ethernet_hdr_t));
 	sr_ethernet_hdr_t* ethernet_header = (sr_ethernet_hdr_t*)mem_block;
-	struct sr_if * iface = (struct sr_if *)interface;
+	struct sr_if* iface = (struct sr_if*) interface;
 	/* ARP header: */
 	arp_header->ar_op = htons(arp_op_reply); /* arp reply optype */
 	arp_header->ar_hrd = htons(arp_hrd_ethernet); /*  ethernet hardware */
@@ -164,9 +167,14 @@ void send_arp_reply(struct sr_instance* sr, sr_arp_hdr_t* arp_packet, char* inte
 	/* Ethernet header: */
 	memcpy(ethernet_header->ether_shost, iface->addr, ETHER_ADDR_LEN); /* Put in ethernet source and target MAC. */
 	memcpy(ethernet_header->ether_dhost, arp_packet->ar_sha, ETHER_ADDR_LEN);
+	ethernet_header->ether_type = htons(ethertype_arp);
+	/* print source and dest */
+	
 
 	/* Try to send packet. */
+	printf("Trying to send...");
 	int success = sr_send_packet(sr, mem_block, sizeof(sr_arp_hdr_t)+sizeof(sr_ethernet_hdr_t), iface->name);
+	printf("Tried to send.");
 	if (success!=0) {
 		printf("sr_send_packet error when trying to send ARP reply.\n");
 	} 
