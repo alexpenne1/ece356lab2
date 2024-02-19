@@ -216,12 +216,31 @@ void send_arp_reply(struct sr_instance* sr, sr_arp_hdr_t* arp_packet, char* inte
 	  printf("Packet length too small. Discarding.\n");
 	  return;
   }
-  /* check ttl */
-  if (ip_packet->ip_ttl <= 1) {
-	  printf("Packet timed out. TTL <= 1. \n");
-	  send_icmp_exception(sr, 11, 9, ip_packet, ip_buffer, (struct sr_if *)ip_interface); /*time exceeded*/
+  
+  
+  /* check checksum */
+  uint16_t incoming_checksum = ntohs(ip_packet-> ip_sum);
+  ip_packet->ip_sum = 0; /* checksum not included */
+  uint16_t calculated_checksum = ntohs(cksum(ip_packet, sizeof(sr_ip_hdr_t)));
+  
+  if (incoming_checksum != calculated_checksum) {
+	  printf("Checksum is invalid. Discarding packet.\n");
+	  return;
+  } else {
+	  printf("Checksum valid.\n");
   }
   
+  /* check ttl */
+    if (ip_packet->ip_ttl <= 1) {
+  	  printf("Packet timed out. TTL <= 1. \n");
+  	  send_icmp_exception(sr, 11, 9, ip_packet, ip_buffer, (struct sr_if *)ip_interface); /*time exceeded*/
+  	  return;
+    } else {
+    	printf("TTL valid.\n");
+  	  uint16_t TTL = ip_packet->ip_ttl; /*decrement the ttl by 1*/
+  	  ip_packet->ip_sum = ntohs(cksum(ip_packet, sizeof(sr_ip_hdr_t))); /*recalculate checksum*/
+  	  ip_packet->ip_ttl = TTL - 1; /*decrement the ttl by 1*/
+    }
   
   /* check if address is within network (sr_if.c/h) <- instance at member if_list */
   /*struct sr_if* interface_check = sr_get_interface(sr, ip_interface->name);*/
@@ -233,34 +252,19 @@ void send_arp_reply(struct sr_instance* sr, sr_arp_hdr_t* arp_packet, char* inte
   if (interface_check != 0) { /*in local interface*/
     printf("Entered first loop.\n");
     if (ip_packet->ip_p == ip_protocol_icmp) { /*TO-DO: if ICMP echo request, checksum, then echo reply to the sending host */
-      ip_packet->ip_sum = 0;
-      uint16_t chksum_icmp = ntohs(cksum(ip_packet, sizeof(sr_ip_hdr_t)));
-      if (chksum_icmp != ntohs(ip_packet->ip_sum)) {
-        printf("Checksum invalid. Sending error.\n");
-        return;
-      }  
-      else {
-        send_icmp_reply(sr, 0, 9, ip_packet, ip_buffer, (struct sr_if*)ip_interface);
-      }
+      send_icmp_reply(sr, 0, 9, ip_packet, ip_buffer, (struct sr_if*)ip_interface);
     }
     else { 
-        send_icmp_exception(sr, 3, 3, ip_packet, ip_buffer, (struct sr_if*)ip_interface); /*send an exception is UDP or TCP payload is sent to one of the interfaces*/
-      } 
+      send_icmp_exception(sr, 3, 3, ip_packet, ip_buffer, (struct sr_if*)ip_interface); /*send an exception is UDP or TCP payload is sent to one of the interfaces*/
+    } 
   } 
   /*if not within network/destined elsewhere*/
   else {
   
   /*calculate checksum and check if it matches checksum from header*/
-  uint16_t chksum_calc = ntohs(cksum(ip_packet, sizeof(sr_ip_hdr_t)));
-
-  if (chksum_calc != ntohs(ip_packet->ip_sum)) {
-    printf("Packet checksum incorrect.\n");
-    return; /*discard packet*/
-  } 
-  else { /*checksum matched*/
-    uint16_t TTL = ip_packet->ip_ttl; /*decrement the ttl by 1*/
-      ip_packet->ip_sum = ntohs(cksum(ip_packet, sizeof(sr_ip_hdr_t))); /*recalculate checksum*/
-      ip_packet->ip_ttl = TTL - 1; /*decrement the ttl by 1*/
+  
+  
+	  
 
       /*find out which entry in the routing table has the longest prefix match with the destination IP address*/
       printf("Loading routing table from server.\n");
@@ -279,7 +283,7 @@ void send_arp_reply(struct sr_instance* sr, sr_arp_hdr_t* arp_packet, char* inte
       
       /*TO-DO: Need to figure out how to accomodate type 3, code 1*/
     	
-  	} 
+  	
   } 
 } 
 
