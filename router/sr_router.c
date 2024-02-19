@@ -260,11 +260,6 @@ void send_arp_reply(struct sr_instance* sr, sr_arp_hdr_t* arp_packet, char* inte
   } 
   /*if not within network/destined elsewhere*/
   else {
-  
-  /*calculate checksum and check if it matches checksum from header*/
-  
-  
-	  
 
       /*find out which entry in the routing table has the longest prefix match with the destination IP address*/
       printf("Loading routing table from server.\n");

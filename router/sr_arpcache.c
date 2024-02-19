@@ -21,9 +21,11 @@ void sr_arpcache_sweepreqs(struct sr_instance *sr) {
     /* Get list of requests.*/
 	struct sr_arpreq* current_requests = sr->cache.requests;
 	/* Go through linked list of requests.*/
-	while (current_requests != 0) {
+	while (current_requests != NULL) {
+		
 		/* Check if has a MAC address yet in the cache. Must free this if not NULL.*/
 		struct sr_arpentry* request_entry = sr_arpcache_lookup(&sr->cache, current_requests->ip);
+		
 		/* Check if entry is null.*/
 		if (request_entry != NULL) {
 			printf("Cache hit on IP %d", current_requests->ip);
@@ -53,12 +55,15 @@ void sr_arpcache_sweepreqs(struct sr_instance *sr) {
 			/* All packets sent. Need to destroy request. */
 			sr_arpreq_destroy(&sr->cache, current_requests);
 		} else {
-			printf("Cache miss.\n");
+			
 			/* Cache miss. Need to resend ARP. */
 			if (difftime(time(0), current_requests->sent)>1) {
+				printf("Cache miss.\n");
 				/* Been longer than a second. */
 				/* Check times sent. */
+				printf("Times sent: %d\n", current_requests->times_sent);
 				if (current_requests->times_sent > 4) {
+					
 					/* Sent the max times. */
 					/* TODO: send icmp packet */
 					/* send_icmp_exception(&sr, 3, 1, current_packets, ) */
