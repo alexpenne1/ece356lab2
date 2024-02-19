@@ -123,7 +123,7 @@ void sr_handlepacket(struct sr_instance* sr,
   void sr_handlearp(struct sr_instance* sr, uint8_t* arp_buffer, char* interface, unsigned int len) {
 
 	  printf("Handling ARP...\n");
-
+    
 	  /* Cast buffer to arp header struct type. */
 	  sr_arp_hdr_t* arp_packet = (sr_arp_hdr_t*) arp_buffer;
 	  enum sr_arp_opcode opcode = (enum sr_arp_opcode)ntohs(arp_packet->ar_op);
@@ -175,7 +175,7 @@ void send_arp_reply(struct sr_instance* sr, sr_arp_hdr_t* arp_packet, char* inte
 	/* Try to send packet. */
 	printf("Trying to send...");
 	int success = sr_send_packet(sr, mem_block, sizeof(sr_arp_hdr_t)+sizeof(sr_ethernet_hdr_t), iface->name);
-	printf("Tried to send.");
+	printf("ARP Sent.");
 	if (success!=0) {
 		printf("sr_send_packet error when trying to send ARP reply.\n");
 	} 
@@ -212,6 +212,7 @@ void send_arp_reply(struct sr_instance* sr, sr_arp_hdr_t* arp_packet, char* inte
   uint32_t dest_addr = ntohs(ip_packet->ip_dst);
 
   /* check if address is within network (sr_if.c/h) <- instance at member if_list */
+  /*struct sr_if* interface_check = sr_get_interface(sr, ip_interface->name);*/
   struct sr_if* interface_check = sr->if_list;
   if (interface_check != 0 && dest_addr != interface_check->ip) { 
     interface_check = interface_check->next;
@@ -219,7 +220,7 @@ void send_arp_reply(struct sr_instance* sr, sr_arp_hdr_t* arp_packet, char* inte
   if (interface_check != 0) { /*in local interface*/
     if (ip_packet->ip_p == ip_protocol_icmp) { /*TO-DO: if ICMP echo request, checksum, then echo reply to the sending host */
 
-      uint16_t chksum_icmp = ntohs(cksum(ip_packet, sizeof(sr_arp_hdr_t)));
+      uint16_t chksum_icmp = ntohs(cksum(ip_packet, sizeof(sr_ip_hdr_t)));
       if (chksum_icmp != ntohs(ip_packet->ip_sum)) {
         printf("Checksum invalid. Sending error.\n");
         return;
