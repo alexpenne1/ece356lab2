@@ -217,7 +217,9 @@ void send_arp_reply(struct sr_instance* sr, sr_arp_hdr_t* arp_packet, char* inte
   if (interface_check != 0 && dest_addr != interface_check->ip) { 
     interface_check = interface_check->next;
   } /* end if */
+  printf("Interface check");
   if (interface_check != 0) { /*in local interface*/
+    printf("Entered first loop");
     if (ip_packet->ip_p == ip_protocol_icmp) { /*TO-DO: if ICMP echo request, checksum, then echo reply to the sending host */
 
       uint16_t chksum_icmp = ntohs(cksum(ip_packet, sizeof(sr_ip_hdr_t)));
