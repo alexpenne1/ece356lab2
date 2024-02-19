@@ -148,7 +148,7 @@ void sr_handlepacket(struct sr_instance* sr,
 
 void send_arp_reply(struct sr_instance* sr, sr_arp_hdr_t* arp_packet, char* interface) {
 	/* Malloc header space. */
-	printf("Sending arp reply...");
+	printf("Sending arp reply...\n");
 	uint8_t* mem_block = (uint8_t*) malloc(sizeof(sr_arp_hdr_t) + sizeof(sr_ethernet_hdr_t));
 	sr_arp_hdr_t* arp_header = (sr_arp_hdr_t*)(mem_block+sizeof(sr_ethernet_hdr_t));
 	sr_ethernet_hdr_t* ethernet_header = (sr_ethernet_hdr_t*)mem_block;
@@ -173,9 +173,9 @@ void send_arp_reply(struct sr_instance* sr, sr_arp_hdr_t* arp_packet, char* inte
 	
 
 	/* Try to send packet. */
-	printf("Trying to send...");
+	printf("Trying to send...\n");
 	int success = sr_send_packet(sr, mem_block, sizeof(sr_arp_hdr_t)+sizeof(sr_ethernet_hdr_t), iface->name);
-	printf("ARP Sent.");
+	printf("ARP Sent.\n");
 	if (success!=0) {
 		printf("sr_send_packet error when trying to send ARP reply.\n");
 	} 
@@ -210,16 +210,28 @@ void send_arp_reply(struct sr_instance* sr, sr_arp_hdr_t* arp_packet, char* inte
     
   sr_ip_hdr_t* ip_packet = (sr_ip_hdr_t*) ip_buffer;
   uint32_t dest_addr = ntohs(ip_packet->ip_dst);
-
+  
+  /* check length */
+  if (ip_len < sizeof(sr_ip_hdr_t)) {
+	  printf("Packet length too small. Discarding.\n");
+	  return;
+  }
+  /* check ttl */
+  if (ip_packet->ip_ttl <= 1) {
+	  printf("Packet timed out. TTL <= 1. \n");
+	  send_icmp_exception(sr, 11, 9, ip_packet, ip_buffer, (struct sr_if *)ip_interface); /*time exceeded*/
+  }
+  
+  
   /* check if address is within network (sr_if.c/h) <- instance at member if_list */
   /*struct sr_if* interface_check = sr_get_interface(sr, ip_interface->name);*/
   struct sr_if* interface_check = sr->if_list;
-  if (interface_check != 0 && dest_addr != interface_check->ip) { 
+  while (interface_check != 0 && dest_addr != interface_check->ip) { 
     interface_check = interface_check->next;
   } /* end if */
 
   if (interface_check != 0) { /*in local interface*/
-    printf("Entered first loop");
+    printf("Entered first loop.\n");
     if (ip_packet->ip_p == ip_protocol_icmp) { /*TO-DO: if ICMP echo request, checksum, then echo reply to the sending host */
       ip_packet->ip_sum = 0;
       uint16_t chksum_icmp = ntohs(cksum(ip_packet, sizeof(sr_ip_hdr_t)));
@@ -237,10 +249,7 @@ void send_arp_reply(struct sr_instance* sr, sr_arp_hdr_t* arp_packet, char* inte
   } 
   /*if not within network/destined elsewhere*/
   else {
-  if (ip_len < sizeof(sr_ip_hdr_t)) { /*check min length and checksum of the packet*/
-    printf("Packet length not valid\n");
-    return; /*discard packet */
-  } 
+  
   /*calculate checksum and check if it matches checksum from header*/
   uint16_t chksum_calc = ntohs(cksum(ip_packet, sizeof(sr_ip_hdr_t)));
 
@@ -250,12 +259,6 @@ void send_arp_reply(struct sr_instance* sr, sr_arp_hdr_t* arp_packet, char* inte
   } 
   else { /*checksum matched*/
     uint16_t TTL = ip_packet->ip_ttl; /*decrement the ttl by 1*/
-    if (TTL <= 1) { /*if the TTL field is zero, then discard packet */
-      send_icmp_exception(sr, 11, 9, ip_packet, ip_buffer, (struct sr_if *)ip_interface); /*time exceeded*/
-      return;
-    } 
-    /*if TTL != zero */
-    else {
       ip_packet->ip_sum = ntohs(cksum(ip_packet, sizeof(sr_ip_hdr_t))); /*recalculate checksum*/
       ip_packet->ip_ttl = TTL - 1; /*decrement the ttl by 1*/
 
@@ -268,14 +271,14 @@ void send_arp_reply(struct sr_instance* sr, sr_arp_hdr_t* arp_packet, char* inte
         printf("Next hop not found.\n");
         send_icmp_exception(sr, 3, 0, ip_packet, ip_buffer, (struct sr_if*)ip_interface); /*port unreachable*/
         return; /*discard packet*/
-      } 
+      }
       /*check arp cache for the next MAC address corresponding to the next-hop IP */
       printf("Searching for next hop MAC address.\n");
       uint32_t nh_addr = next_hop_ip->dest.s_addr;
       struct sr_arpreq* cache_req = sr_arpcache_queuereq(&(sr->cache), nh_addr, (uint8_t*)ip_packet, ip_len, ip_interface); /*i'm assuming that sr_arpcache_sweepreqs handles everything */
       
       /*TO-DO: Need to figure out how to accomodate type 3, code 1*/
-    	}
+    	
   	} 
   } 
 } 
