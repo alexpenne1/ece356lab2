@@ -139,7 +139,7 @@ void sr_handlepacket(struct sr_instance* sr,
 		  send_arp_reply(sr, arp_packet, interface); /* DONE */
 		  break;
 	  case arp_op_reply:
-		  printf("ARP reply.:\n");
+		  printf("ARP reply.\n");
 		  
 		  struct sr_arpreq* request = sr_arpcache_insert(&sr->cache, arp_packet->ar_sha, arp_packet->ar_sip);
 		  printf("Checkin if in queue...\n");

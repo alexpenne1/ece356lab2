@@ -104,7 +104,9 @@ void sr_send_arp_request(struct sr_instance* sr, struct sr_arpreq* arp_request) 
 /* Checks if an IP->MAC mapping is in the cache. IP is in network byte order.
    You must free the returned structure if it is not NULL. */
 struct sr_arpentry *sr_arpcache_lookup(struct sr_arpcache *cache, uint32_t ip) {
-    pthread_mutex_lock(&(cache->lock));
+    
+	
+	pthread_mutex_lock(&(cache->lock));
     
     struct sr_arpentry *entry = NULL, *copy = NULL;
     
@@ -139,8 +141,9 @@ struct sr_arpreq *sr_arpcache_queuereq(struct sr_arpcache *cache,
                                        unsigned int packet_len,
                                        char *iface)
 {
+	
     pthread_mutex_lock(&(cache->lock));
-    printf("Adding packet to queue...\n");
+    
     struct sr_arpreq *req;
     for (req = cache->requests; req != NULL; req = req->next) {
         if (req->ip == ip) {
@@ -217,7 +220,7 @@ struct sr_arpreq *sr_arpcache_insert(struct sr_arpcache *cache,
     }
     
     pthread_mutex_unlock(&(cache->lock));
-    printf("Returning request.\n");
+   
     return req;
 }
 
