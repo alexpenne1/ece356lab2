@@ -91,6 +91,10 @@ void sr_handlepacket(struct sr_instance* sr,
   assert(interface);
 
   printf("*** -> Received packet of length %d \n",len);
+  if (len < sizeof(sr_ethernet_hdr_t)) {
+	  printf("Incoming packet too small.\n");
+	  return;
+  }
   print_hdrs(packet, len);
   /* Determine if IP or ARP packet from ethertype. (found in sr_protocol.h) */
   switch (ethertype(packet)) {
