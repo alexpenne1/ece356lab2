@@ -91,7 +91,7 @@ void sr_handlepacket(struct sr_instance* sr,
   assert(interface);
 
   printf("*** -> Received packet of length %d \n",len);
-  printf("Ethertype: %hx\n", ethertype(packet));
+  print_hdrs(packet, len);
   /* Determine if IP or ARP packet from ethertype. (found in sr_protocol.h) */
   switch (ethertype(packet)) {
   case ethertype_ip:
@@ -123,7 +123,7 @@ void sr_handlepacket(struct sr_instance* sr,
   */
   void sr_handlearp(struct sr_instance* sr, uint8_t* arp_buffer, char* interface, unsigned int len) {
 
-	  printf("Handling ARP...\n");
+	  
     
 	  /* Cast buffer to arp header struct type. */
 	  sr_arp_hdr_t* arp_packet = (sr_arp_hdr_t*) arp_buffer;
@@ -177,6 +177,7 @@ void send_arp_reply(struct sr_instance* sr, sr_arp_hdr_t* arp_packet, char* inte
 	printf("Trying to send...\n");
 	int success = sr_send_packet(sr, mem_block, sizeof(sr_arp_hdr_t)+sizeof(sr_ethernet_hdr_t), iface->name);
 	printf("ARP Sent.\n");
+	print_hdrs(mem_block, sizeof(sr_arp_hdr_t)+sizeof(sr_ethernet_hdr_t));
 	if (success!=0) {
 		printf("sr_send_packet error when trying to send ARP reply.\n");
 	} 
@@ -298,9 +299,18 @@ struct sr_if* sr_match_interface(struct sr_instance* sr, uint32_t ip) {
     	  sr_ethernet_hdr_t* ethernet_header = (sr_ethernet_hdr_t*) packet;
     	  memcpy(ethernet_header->ether_dhost, entry->mac, ETHER_ADDR_LEN);
     	  memcpy(ethernet_header->ether_shost, next_hop_interface->addr, ETHER_ADDR_LEN);
-    	  sr_send_packet(sr, packet, packet_len, next_hop_ip->interface);
+    	  
+    	  int success = sr_send_packet(sr, packet, packet_len, next_hop_ip->interface);
+    	  printf("FORWARDING ICMP PACKET\n\n\n");
+    	  print_hdrs(packet, packet_len);
+    	  if (success == 0) {
+    		  printf("Forwarded successfully.");
+    	  } else {
+    		  printf("Error in forwarding packet.");
+    	  }
       } else {
-    	  printf("No entry found. Adding to queue.\n");
+    	  printf("No entry found. Adding this packet to queue:\n");
+    	  print_hdr_ip((uint8_t*)ip_packet);
     	  struct sr_arpreq* cache_req = sr_arpcache_queuereq(&(sr->cache), nh_addr, (uint8_t*)ip_packet, ip_len, ip_interface); /*i'm assuming that sr_arpcache_sweepreqs handles everything */ 
       }
       
