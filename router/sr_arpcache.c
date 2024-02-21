@@ -20,7 +20,7 @@ void sr_send_arp_request(struct sr_instance* sr, struct sr_arpreq* arp_request);
   See the comments in the header file for an idea of what it should look like.
 */
 void sr_arpcache_sweepreqs(struct sr_instance *sr) { 
-	printf("Sweeping requests...");
+	printf("Sweeping requests...\n");
     /* Get list of requests.*/
 	struct sr_arpreq* current_requests = sr->cache.requests;
 	/* Go through linked list of requests.*/
@@ -38,7 +38,7 @@ void sr_arpcache_sweepreqs(struct sr_instance *sr) {
 				sr_arpreq_destroy(&(sr->cache), current_requests);
 				current_requests = temp;
 			} else {
-				printf("Sending ARP request.");
+				
 				sr_send_arp_request(sr, current_requests);
 				current_requests->sent = current_time;
 				current_requests->times_sent++;
@@ -49,14 +49,14 @@ void sr_arpcache_sweepreqs(struct sr_instance *sr) {
 
 
 void sr_send_arp_request(struct sr_instance* sr, struct sr_arpreq* arp_request) {
-	printf("Sending ARP request...\n");
+	printf("Need to resend ARP request.\n");
 	/* Malloc space for request. */
 	uint8_t* mem_block = malloc(sizeof(sr_arp_hdr_t)+sizeof(sr_ethernet_hdr_t));
 	/* Check for forwarding item in table */
 	struct in_addr ip_check;
-	printf("Getting arp_request->ip\n");
+	
 	ip_check.s_addr = arp_request->ip;
-	printf("Getting entry\n");
+	
 	struct sr_rt* routing_table_entry = search_rt(sr, ip_check);
 	printf("Checking if entry\n");
 	if (routing_table_entry == NULL) {
@@ -65,7 +65,7 @@ void sr_send_arp_request(struct sr_instance* sr, struct sr_arpreq* arp_request) 
 		free(mem_block);
 		
 	}
-	printf("Found interface to send out of.");
+	
 	struct sr_if* iface = sr_get_interface(sr, routing_table_entry->interface);
 	
 	/* Cast ARP and ethernet header. */
@@ -104,7 +104,7 @@ void sr_send_arp_request(struct sr_instance* sr, struct sr_arpreq* arp_request) 
 /* Checks if an IP->MAC mapping is in the cache. IP is in network byte order.
    You must free the returned structure if it is not NULL. */
 struct sr_arpentry *sr_arpcache_lookup(struct sr_arpcache *cache, uint32_t ip) {
-    /*pthread_mutex_lock(&(cache->lock));*/
+    pthread_mutex_lock(&(cache->lock));
     
     struct sr_arpentry *entry = NULL, *copy = NULL;
     
@@ -182,12 +182,12 @@ struct sr_arpreq *sr_arpcache_insert(struct sr_arpcache *cache,
                                      unsigned char *mac,
                                      uint32_t ip)
 {
-	printf("Inserting into known mac to IPs.\n");
-    /*pthread_mutex_lock(&(cache->lock)); */
-    printf("Check 1\n");
+	
+    pthread_mutex_lock(&(cache->lock)); 
+
     struct sr_arpreq *req, *prev = NULL, *next = NULL; 
     for (req = cache->requests; req != NULL; req = req->next) {
-    	printf("Check 2\n");
+    	
         if (req->ip == ip) {            
             if (prev) {
                 next = req->next;
