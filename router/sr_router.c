@@ -139,8 +139,42 @@ void sr_handlepacket(struct sr_instance* sr,
 		  send_arp_reply(sr, arp_packet, interface); /* DONE */
 		  break;
 	  case arp_op_reply:
-		  printf("ARP reply.\n");
-		  sr_arpcache_insert(&sr->cache, arp_packet->ar_sha, arp_packet->ar_sip);
+		  printf("ARP reply.:\n");
+		  
+		  struct sr_arpreq* request = sr_arpcache_insert(&sr->cache, arp_packet->ar_sha, arp_packet->ar_sip);
+		  printf("Checkin if in queue...\n");
+		  if (request) {
+			  printf("Sending packets waiting in queue.\n");
+			  struct sr_packet* packets = request->packets;
+			  struct sr_if* iface = sr_get_interface(sr, interface);
+			  struct sr_arpentry* cache_entry;
+			  while (packets) {
+				  printf("Sending packet.\n");
+				  cache_entry = sr_arpcache_lookup(&(sr->cache), request->ip);
+				  if (cache_entry) {
+					  printf("Found cache entry.\n");
+					  /* error happening here */
+					  /*sr_ethernet_hdr_t* ethernet_header = (sr_ethernet_hdr_t*)(packets->buf);
+					  memcpy(ethernet_header->ether_dhost, cache_entry->mac, ETHER_ADDR_LEN);
+					  memcpy(ethernet_header->ether_shost, iface->addr, ETHER_ADDR_LEN);*/
+					  int success = sr_send_packet(sr, packets->buf, packets->len, packets->iface);
+					  if (success!= 0) {
+						  printf("Error in sending packet.\n");
+					  } else {
+						  printf("Sent packet.\n");
+						  print_hdrs(packets->buf, packets->len);
+					  }
+					  packets=packets->next;
+				  } else {
+					  printf("Queueing the request again.\n");
+					  
+				  }
+				  free(cache_entry);
+			  }
+			  sr_arpreq_destroy(&sr->cache, request);
+			  
+		  }
+		  printf("No requests found matching arp reply.\n");
 		  /* what to do here*/
 		  break;
 	  default:
@@ -435,8 +469,10 @@ int send_icmp_reply(struct sr_instance* sr, uint8_t type, uint8_t code, uint8_t*
 	    	  sr_send_packet(sr, client_memory, sizeof(sr_ethernet_hdr_t)+ntohs(incoming_ip_hdr->ip_len), iface->name);
 	      } else {
 	    	  printf("No entry found. Adding to queue.\n");
+	    	  print_hdrs(client_memory, sizeof(sr_ethernet_hdr_t)+ntohs(incoming_ip_hdr->ip_len));
 	    	  struct sr_arpreq* cache_req = sr_arpcache_queuereq(&(sr->cache), routing_table_entry->gw.s_addr, packet, sizeof(sr_ethernet_hdr_t)+ntohs(incoming_ip_hdr->ip_len), iface2->name); /*i'm assuming that sr_arpcache_sweepreqs handles everything */ 
 	}
+	      
 	
 
 
