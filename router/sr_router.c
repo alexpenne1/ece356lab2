@@ -99,11 +99,11 @@ void sr_handlepacket(struct sr_instance* sr,
   /* Determine if IP or ARP packet from ethertype. (found in sr_protocol.h) */
   switch (ethertype(packet)) {
   case ethertype_ip:
-	  printf("IP packet.\n");
+	  printf("Packet is IP..\n");
 	  sr_handle_ip(sr, packet, interface, len-sizeof(sr_ethernet_hdr_t), len);
 	  break;
   case ethertype_arp:
-	  printf("ARP packet.\n");
+	  printf("Packet is ARP.\n");
 	  sr_handlearp(sr, packet + sizeof(sr_ethernet_hdr_t), interface, len - sizeof(sr_ethernet_hdr_t));
 	  break;
   default:
@@ -266,7 +266,7 @@ struct sr_if* sr_match_interface(struct sr_instance* sr, uint32_t ip) {
 }
   void sr_handle_ip(struct sr_instance* sr, uint8_t* packet, char* ip_interface, unsigned int ip_len, unsigned int packet_len) {
 
-  printf("Handling IP...\n");
+  
   uint8_t* ip_buffer = packet+sizeof(sr_ethernet_hdr_t);
   sr_ip_hdr_t* ip_packet = (sr_ip_hdr_t*) (packet + sizeof(sr_ethernet_hdr_t));
   uint32_t dest_addr = ntohs(ip_packet->ip_dst);
@@ -287,7 +287,7 @@ struct sr_if* sr_match_interface(struct sr_instance* sr, uint32_t ip) {
 	  printf("Checksum is invalid. Discarding packet.\n");
 	  return;
   } else {
-	  printf("Checksum valid.\n");
+	  printf("IP checksum valid.\n");
   }
   
   /* check ttl */
@@ -296,7 +296,7 @@ struct sr_if* sr_match_interface(struct sr_instance* sr, uint32_t ip) {
   	  send_icmp_exception(sr, 11, 9, ip_packet, ip_buffer, (struct sr_if *)ip_interface); /*time exceeded*/
   	  return;
     } else {
-    	printf("TTL valid.\n");
+    	printf("IP TTL valid.\n");
   	  uint16_t TTL = ip_packet->ip_ttl; /*decrement the ttl by 1*/
   	  ip_packet->ip_sum = ntohs(cksum(ip_packet, sizeof(sr_ip_hdr_t))); /*recalculate checksum*/
   	  ip_packet->ip_ttl = TTL - 1; /*decrement the ttl by 1*/
@@ -316,7 +316,7 @@ struct sr_if* sr_match_interface(struct sr_instance* sr, uint32_t ip) {
     
     if (ip_packet->ip_p == ip_protocol_icmp) { /*TO-DO: if ICMP echo request, checksum, then echo reply to the sending host */
     	
-    	printf("Is echo, sending reply.\n");
+    	printf("IP is echo request.\n");
     	
     	send_icmp_reply(sr, 0, 9, packet, (struct sr_if*)ip_interface);
     }
@@ -408,16 +408,16 @@ struct sr_rt* search_rt(struct sr_instance* sr, struct in_addr addr) {
 int send_icmp_reply(struct sr_instance* sr, uint8_t type, uint8_t code, uint8_t* packet, struct sr_if* interface) {
 	
 	sr_ip_hdr_t* incoming_ip_hdr = (sr_ip_hdr_t*) (packet+sizeof(sr_ethernet_hdr_t));
-	printf("Sending ICMP reply...\n");
+	
 	unsigned int icmp_len = 0;
 	switch (type) {
 	case(3):
-			printf("Type 3.\n");
+			printf("ICMP is Type 3.\n");
 			icmp_len = sizeof(sr_icmp_t3_hdr_t);
 			break;
 	
 	default:
-			printf("NOT Type 3.\n");
+			printf("ICMP is NOT Type 3.\n");
 			icmp_len = sizeof(sr_icmp_hdr_t);
 			break;
 	}
@@ -470,15 +470,22 @@ int send_icmp_reply(struct sr_instance* sr, uint8_t type, uint8_t code, uint8_t*
 	ethernet_header->ether_type = htons(ethertype_ip);
 	struct sr_arpentry* entry = sr_arpcache_lookup(&sr->cache, routing_table_entry->gw.s_addr);
 	struct sr_if* iface2 = sr_get_interface(sr, iface->name);
+	printf("ICMP packet attempting to send:\n\n");
+	print_hdrs(client_memory, sizeof(sr_ethernet_hdr_t)+ntohs(incoming_ip_hdr->ip_len));
 	      if (entry) { /* found entry */
-	    	  printf("Entry found. Forwarding packet.\n");
-	    	  
+	    	  printf("Forwarding MAC address found. Forwarding packet.\n");
 	    	  memcpy(ethernet_header->ether_dhost, entry->mac, ETHER_ADDR_LEN);
 	    	  memcpy(ethernet_header->ether_shost, iface2->addr, ETHER_ADDR_LEN);
-	    	  sr_send_packet(sr, client_memory, sizeof(sr_ethernet_hdr_t)+ntohs(incoming_ip_hdr->ip_len), iface->name);
+
+	    	  int success = sr_send_packet(sr, client_memory, sizeof(sr_ethernet_hdr_t)+ntohs(incoming_ip_hdr->ip_len), iface->name);
+			  if (success!=0) {
+				printf("ICMP reply failed to send.\n");
+			  } else {
+				printf("ICMP reply successfully sent.\n");
+			  }
 	      } else {
-	    	  printf("No entry found. Adding to queue.\n");
-	    	  print_hdrs(client_memory, sizeof(sr_ethernet_hdr_t)+ntohs(incoming_ip_hdr->ip_len));
+	    	  printf("No forwarding MAC entry found. Adding to queue.\n");
+	    	  
 	    	  struct sr_arpreq* cache_req = sr_arpcache_queuereq(&(sr->cache), routing_table_entry->gw.s_addr, packet, sizeof(sr_ethernet_hdr_t)+ntohs(incoming_ip_hdr->ip_len), iface2->name); /*i'm assuming that sr_arpcache_sweepreqs handles everything */ 
 	}
 	      
