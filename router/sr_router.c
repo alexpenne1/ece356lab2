@@ -153,6 +153,15 @@ void sr_handlepacket(struct sr_instance* sr,
 				  cache_entry = sr_arpcache_lookup(&(sr->cache), request->ip);
 				  if (cache_entry) {
 					  printf("Found cache entry.\n");
+					  printf("Sending ICMP packet:\n");
+					  struct sr_ip_hdr_t* ip_hdr = (sr_ip_hdr_t*) packets->buf;
+					  
+					  /*uint32_t test = ip_hdr->ip_dst;
+					  ip_hdr->ip_dst = ip_hdr->ip_src;
+					  ip_hdr->ip_src = test; */
+					  print_hdrs(packets->buf, packets->len);
+					  
+					  
 					  /* error happening here */
 					  /*sr_ethernet_hdr_t* ethernet_header = (sr_ethernet_hdr_t*)(packets->buf);
 					  memcpy(ethernet_header->ether_dhost, cache_entry->mac, ETHER_ADDR_LEN);
@@ -162,7 +171,7 @@ void sr_handlepacket(struct sr_instance* sr,
 						  printf("Error in sending packet.\n");
 					  } else {
 						  printf("Sent packet.\n");
-						  print_hdrs(packets->buf, packets->len);
+						  
 					  }
 					  packets=packets->next;
 				  } else {
