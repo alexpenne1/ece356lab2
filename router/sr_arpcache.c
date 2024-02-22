@@ -25,13 +25,14 @@ void sr_arpcache_sweepreqs(struct sr_instance *sr) {
 	struct sr_arpreq* current_requests = sr->cache.requests;
 	/* Go through linked list of requests.*/
 	while (current_requests != NULL) {
+		printf("Checking request.\n");
 		struct sr_arpreq* temp = current_requests->next;
 		time_t current_time = time(NULL);
 		if (difftime(current_time, current_requests->sent)>1.0) {
 			if (current_requests->times_sent >= 5) {
 				printf("Timing out. Sending ICMP exceptions.\n");
 				struct sr_packet* packets = current_requests->packets;
-				while (packets != 0) {
+				while (packets != NULL) {
 					/* send icmp */
 					packets = packets->next;
 				}
@@ -44,6 +45,7 @@ void sr_arpcache_sweepreqs(struct sr_instance *sr) {
 				current_requests->times_sent++;
 			}
 		}
+		current_requests = temp;
 	}
 }
 

@@ -141,8 +141,8 @@ void sr_handlepacket(struct sr_instance* sr,
 	  case arp_op_reply:
 		  printf("ARP reply.\n");
 		  
-		  struct sr_arpreq* request = sr_arpcache_insert(&sr->cache, arp_packet->ar_sha, arp_packet->ar_sip);
-		  printf("Checkin if in queue...\n");
+		  struct sr_arpreq* request = sr_arpcache_insert(&(sr->cache), arp_packet->ar_sha, arp_packet->ar_sip);
+		  printf("Checking if in queue...\n");
 		  if (request) {
 			  printf("Sending packets waiting in queue.\n");
 			  struct sr_packet* packets = request->packets;
@@ -154,13 +154,18 @@ void sr_handlepacket(struct sr_instance* sr,
 				  if (cache_entry) {
 					  printf("Found cache entry.\n");
 					  printf("Sending ICMP packet:\n");
-					  /*struct sr_ip_hdr_t* ip_hdr = (sr_ip_hdr_t*) (packets+sizeof(sr_ethernet_hdr_t))->buf; */
+					  sr_ethernet_hdr_t* ether_hdr = (sr_ethernet_hdr_t*) packets->buf;
+					  memcpy(ether_hdr->ether_dhost, arp_packet->ar_sha, ETHER_ADDR_LEN); 
+					  struct sr_if* iface = sr_get_interface(sr, interface);
+					  memcpy(ether_hdr->ether_shost, iface->addr, ETHER_ADDR_LEN);
+					  /*
+					  struct sr_ip_hdr_t* ip_hdr = (struct sr_ip_hdr_t*) (packets+sizeof(sr_ethernet_hdr_t))->buf; 
 					  
-					  /*uint32_t test = ip_hdr->ip_dst;
+					  uint32_t test = ip_hdr->ip_dst;
 					  ip_hdr->ip_dst = ip_hdr->ip_src;
-					  ip_hdr->ip_src = test; */
+					  ip_hdr->ip_src = test; 
 					  print_hdrs(packets->buf, packets->len);
-					  
+					  */
 					  
 					  /* error happening here */
 					  /*sr_ethernet_hdr_t* ethernet_header = (sr_ethernet_hdr_t*)(packets->buf);
@@ -485,10 +490,11 @@ int send_icmp_reply(struct sr_instance* sr, uint8_t type, uint8_t code, uint8_t*
 				printf("ICMP reply successfully sent.\n");
 			  }
 	      } else {
+	    	  
 	    	  printf("No forwarding MAC entry found. Adding to queue.\n");
 	    	  printf("ICMP packet adding to queue:\n\n");
 	    	  print_hdrs(client_memory, sizeof(sr_ethernet_hdr_t)+ntohs(incoming_ip_hdr->ip_len));
-	    	  sr_arpcache_queuereq(&(sr->cache), routing_table_entry->gw.s_addr, packet, sizeof(sr_ethernet_hdr_t)+ntohs(incoming_ip_hdr->ip_len), iface2->name); /*i'm assuming that sr_arpcache_sweepreqs handles everything */ 
+	    	  sr_arpcache_queuereq(&(sr->cache), routing_table_entry->gw.s_addr, client_memory, sizeof(sr_ethernet_hdr_t)+ntohs(incoming_ip_hdr->ip_len), iface2->name); /*i'm assuming that sr_arpcache_sweepreqs handles everything */ 
 	}
 	      
 	
