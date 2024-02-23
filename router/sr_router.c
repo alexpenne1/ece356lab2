@@ -163,15 +163,15 @@ void sr_handlepacket(struct sr_instance* sr,
 					  
 					  uint32_t test = ip_hdr->ip_dst;
 					  ip_hdr->ip_dst = ip_hdr->ip_src;
-					  ip_hdr->ip_src = test; 
+					  ip_hdr->ip_src = test; */
 					  print_hdrs(packets->buf, packets->len);
-					  */
+					  
 					  
 					  /* error happening here */
 					  /*sr_ethernet_hdr_t* ethernet_header = (sr_ethernet_hdr_t*)(packets->buf);
 					  memcpy(ethernet_header->ether_dhost, cache_entry->mac, ETHER_ADDR_LEN);
 					  memcpy(ethernet_header->ether_shost, iface->addr, ETHER_ADDR_LEN);*/
-					  int success = sr_send_packet(sr, packets->buf, packets->len, packets->iface);
+					  int success = sr_send_packet(sr, packets->buf, packets->len, iface->name);
 					  if (success!= 0) {
 						  printf("Error in sending packet.\n");
 					  } else {
