@@ -158,6 +158,7 @@ void sr_handlepacket(struct sr_instance* sr,
 					  memcpy(ether_hdr->ether_dhost, arp_packet->ar_sha, ETHER_ADDR_LEN); 
 					  struct sr_if* iface = sr_get_interface(sr, interface);
 					  memcpy(ether_hdr->ether_shost, iface->addr, ETHER_ADDR_LEN);
+					  ether_hdr->ether_type = htons(ethertype_ip);
 					  /*
 					  struct sr_ip_hdr_t* ip_hdr = (struct sr_ip_hdr_t*) (packets+sizeof(sr_ethernet_hdr_t))->buf; 
 					  
@@ -171,7 +172,7 @@ void sr_handlepacket(struct sr_instance* sr,
 					  /*sr_ethernet_hdr_t* ethernet_header = (sr_ethernet_hdr_t*)(packets->buf);
 					  memcpy(ethernet_header->ether_dhost, cache_entry->mac, ETHER_ADDR_LEN);
 					  memcpy(ethernet_header->ether_shost, iface->addr, ETHER_ADDR_LEN);*/
-					  int success = sr_send_packet(sr, packets->buf, packets->len, iface->name);
+					  int success = sr_send_packet(sr, packets->buf, packets->len, packets->iface);
 					  if (success!= 0) {
 						  printf("Error in sending packet.\n");
 					  } else {
@@ -365,7 +366,7 @@ struct sr_if* sr_match_interface(struct sr_instance* sr, uint32_t ip) {
       } else {
     	  printf("No entry found. Adding this packet to queue:\n");
     	  print_hdr_ip((uint8_t*)ip_packet);
-    	  sr_arpcache_queuereq(&(sr->cache), nh_addr, (uint8_t*)ip_packet, ip_len, ip_interface); /*i'm assuming that sr_arpcache_sweepreqs handles everything */ 
+    	  sr_arpcache_queuereq(&(sr->cache), next_hop_ip->gw.s_addr, packet, packet_len, next_hop_ip->interface); /*i'm assuming that sr_arpcache_sweepreqs handles everything */ 
       }
       
       
