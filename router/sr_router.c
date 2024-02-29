@@ -400,16 +400,6 @@ struct sr_rt* search_rt(struct sr_instance* sr, struct in_addr addr) {
 }
 
 
-/*Note to Alex: If anything breaks or cannot compile correctly, I guareentee it's from the ICMP protocols <3*/
-/*
-//copy the contents of the ip packet 
-  //modify the header in the packet
-  //add the destination once again
-  //include icmp header after the ip protcol number
-
-  //icmp packet: type->code->checksum ; pointer to the problem ; original ip header
-
-*/
 /*generate icmpp echo reply*/
 int send_icmp_reply(struct sr_instance* sr, uint8_t type, uint8_t code, uint8_t* packet, struct sr_if* interface) {
 	
@@ -508,7 +498,7 @@ int send_icmp_reply(struct sr_instance* sr, uint8_t type, uint8_t code, uint8_t*
 
 }
 
-int send_icmp_exception(struct sr_instance* sr, uint8_t type, uint8_t code, sr_ip_hdr_t* packet, uint8_t* buf, struct sr_if* interface) {
+int send_icmp_exception(struct sr_instance* sr, uint8_t type, uint8_t code, uint8_t* packet, uint8_t* buf, struct sr_if* interface) {
 
   uint8_t* client_memory = (uint8_t*) malloc(sizeof(sr_ip_hdr_t)+sizeof(sr_ethernet_hdr_t)+sizeof(sr_icmp_hdr_t));
   sr_ip_hdr_t* ip_header = (sr_ip_hdr_t*)(client_memory+sizeof(sr_ip_hdr_t));
@@ -524,7 +514,7 @@ int send_icmp_exception(struct sr_instance* sr, uint8_t type, uint8_t code, sr_i
   sr_icmp_t3_hdr_t* icmp_error = (sr_icmp_t3_hdr_t*)client_memory+sizeof(sr_ethernet_hdr_t)+sizeof(sr_ip_hdr_t);
 	uint32_t icmp_hlen = sizeof(sr_icmp_t3_hdr_t);
 	icmp_error->unused = 0;
-	//memcpy(icmp_error->data, buf, ICMP_DATA_SIZE);
+	/*memcpy(icmp_error->data, buf, ICMP_DATA_SIZE);*/
 	icmp_error->icmp_sum = 0;
 	icmp_error->icmp_sum = cksum(icmp_error, icmp_hlen);
 	
@@ -592,15 +582,6 @@ int send_icmp_exception(struct sr_instance* sr, uint8_t type, uint8_t code, sr_i
   
 }
 
-/*
-// Echo reply (type 0) Sent in response to an echo request (ping) to one of the router's interfaces. (This is only for echo requests to any of the router's IPs. An echo request sent elsewhere should be forwarded to the next hop address as usual.)
-// Destination net unreachable (type 3, code 0) ** Sent if there is a non-existent route to the destination IP (no matching entry in routing table when forwarding an IP packet).
-// Destination host unreachable (type 3, code 1) ** Sent if five ARP requests were sent to the next-hop IP without a response.
-// Port unreachable (type 3, code 3) ** Sent if an IP packet containing a UDP or TCP payload is sent to one of the router's interfaces. This is needed for traceroute to work.
-// Time exceeded (type 11, code 0) ** Sent if an IP packet is discarded during processing because the TTL field is 0. 
-// This is also needed for traceroute to work. The source address of an ICMP message can be the source address of any of the incoming interfaces, as specified in RFC 792. 
-// As mentioned above, the only incoming ICMP message destined towards the router's IPs that you have to explicitly process are ICMP echo requests. You may want to create additional structs for ICMP messages for convenience, but make sure to use the packed attribute so that the compiler doesn't try to align the fields in the struct to word boundaries:
-*/
 
 
 
