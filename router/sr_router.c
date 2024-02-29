@@ -27,7 +27,7 @@
 void sr_handlearp(struct sr_instance* sr, uint8_t* arp_buffer, char* interface, unsigned int len);
 void send_arp_reply(struct sr_instance* sr, sr_arp_hdr_t* arp_packet, char* interface);
 void sr_handle_ip(struct sr_instance* sr, uint8_t* packet, char* ip_interface, unsigned int ip_len, unsigned int packet_len);
-int send_icmp_exception(struct sr_instance* sr, uint8_t type, uint8_t code, sr_ip_hdr_t* packet, uint8_t* buf, struct sr_if* interface);
+int send_icmp_exception(struct sr_instance* sr, uint8_t type, uint8_t code, uint8_t* packet, uint8_t* buf, struct sr_if* interface);
 int send_icmp_reply(struct sr_instance* sr, uint8_t type, uint8_t code, uint8_t* packet, struct sr_if* interface);
 struct sr_rt* search_rt(struct sr_instance* sr, struct in_addr addr);
 /*---------------------------------------------------------------------
