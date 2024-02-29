@@ -299,7 +299,7 @@ struct sr_if* sr_match_interface(struct sr_instance* sr, uint32_t ip) {
   /* check ttl */
     if (ip_packet->ip_ttl <= 1) {
   	  printf("Packet timed out. TTL <= 1. \n");
-  	  send_icmp_exception(sr, 11, 9, ip_packet, ip_buffer, (struct sr_if *)ip_interface); /*time exceeded*/
+  	  send_icmp_exception(sr, 11, 9, packet, ip_buffer, (struct sr_if *)ip_interface); /*time exceeded*/
   	  return;
     } else {
     	printf("IP TTL valid.\n");
@@ -328,7 +328,7 @@ struct sr_if* sr_match_interface(struct sr_instance* sr, uint32_t ip) {
     }
     else { 
     	printf("Is TCP/UDP, sending exception.\n");
-      send_icmp_exception(sr, 3, 3, ip_packet, ip_buffer, (struct sr_if*)ip_interface); /*send an exception is UDP or TCP payload is sent to one of the interfaces*/
+      send_icmp_exception(sr, 3, 3, packet, ip_buffer, (struct sr_if*)ip_interface); /*send an exception is UDP or TCP payload is sent to one of the interfaces*/
     } 
   } 
   /*if not within network/destined elsewhere*/
@@ -342,7 +342,7 @@ struct sr_if* sr_match_interface(struct sr_instance* sr, uint32_t ip) {
       struct sr_if* next_hop_interface = sr_get_interface(sr, next_hop_ip->interface);
       if (next_hop_ip == 0) {
         printf("Next hop not found.\n");
-        send_icmp_exception(sr, 3, 0, ip_packet, ip_buffer, (struct sr_if*)ip_interface); /*port unreachable*/
+        send_icmp_exception(sr, 3, 0, packet, ip_buffer, (struct sr_if*)ip_interface); /*port unreachable*/
         return; /*discard packet*/
       }
       /*check arp cache for the next MAC address corresponding to the next-hop IP */
@@ -522,10 +522,9 @@ int send_icmp_exception(struct sr_instance* sr, uint8_t type, uint8_t code, sr_i
 
   /*populate icmp header*/
   sr_icmp_t3_hdr_t* icmp_error = (sr_icmp_t3_hdr_t*)client_memory+sizeof(sr_ethernet_hdr_t)+sizeof(sr_ip_hdr_t);
-	uint32_t icmp_hlen = sizeof(sr_icmp_hdr_t);
-	icmp_error = malloc(icmp_hlen);
+	uint32_t icmp_hlen = sizeof(sr_icmp_t3_hdr_t);
 	icmp_error->unused = 0;
-	memcpy(icmp_error->data, buf, ICMP_DATA_SIZE);
+	//memcpy(icmp_error->data, buf, ICMP_DATA_SIZE);
 	icmp_error->icmp_sum = 0;
 	icmp_error->icmp_sum = cksum(icmp_error, icmp_hlen);
 	
