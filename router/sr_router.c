@@ -510,21 +510,18 @@ int send_icmp_reply(struct sr_instance* sr, uint8_t type, uint8_t code, uint8_t*
 
 int send_icmp_exception(struct sr_instance* sr, uint8_t type, uint8_t code, sr_ip_hdr_t* packet, uint8_t* buf, struct sr_if* interface) {
 
-  uint8_t* client_memory = (uint8_t*) malloc(sizeof(sr_ip_hdr_t)+sizeof(sr_ethernet_hdr_t));
+  uint8_t* client_memory = (uint8_t*) malloc(sizeof(sr_ip_hdr_t)+sizeof(sr_ethernet_hdr_t)+sizeof(sr_icmp_hdr_t));
   sr_ip_hdr_t* ip_header = (sr_ip_hdr_t*)(client_memory+sizeof(sr_ip_hdr_t));
   sr_ip_hdr_t* incoming_ip_hdr = (sr_ip_hdr_t*) (packet+sizeof(sr_ethernet_hdr_t));
+  sr_ethernet_hdr_t* incoming_ethernet_header = (sr_ethernet_hdr_t*)packet;
 
   /*populate ethernet header*/
   sr_ethernet_hdr_t* ethernet_header = (sr_ethernet_hdr_t*)client_memory;
-  struct in_addr ip_add;
-  ip_add.s_addr = incoming_ip_hdr->ip_src;
-  struct sr_rt* network_num = search_rt(sr, ip_add);
-  struct sr_if* iface = sr_get_interface(sr, network_num->interface);
 
   memcpy(ip_header, incoming_ip_hdr, ntohs(incoming_ip_hdr->ip_len));
 
   /*populate icmp header*/
-  sr_icmp_t3_hdr_t* icmp_error = (sr_icmp_t3_hdr_t*)client_memory;
+  sr_icmp_t3_hdr_t* icmp_error = (sr_icmp_t3_hdr_t*)client_memory+sizeof(sr_ethernet_hdr_t)+sizeof(sr_ip_hdr_t);
 	uint32_t icmp_hlen = sizeof(sr_icmp_hdr_t);
 	icmp_error = malloc(icmp_hlen);
 	icmp_error->unused = 0;
@@ -568,8 +565,8 @@ int send_icmp_exception(struct sr_instance* sr, uint8_t type, uint8_t code, sr_i
 	ip_header->ip_off = IP_RF;
 	ip_header->ip_ttl = IP_TTL;
 	ip_header->ip_p = ip_protocol_icmp;
-	ip_header->ip_src = packet->ip_src;
-	ip_header->ip_dst = packet->ip_dst;
+	ip_header->ip_src = interface->ip;
+	ip_header->ip_dst = incoming_ip_hdr->ip_src;
 	ip_header->ip_sum = 0;
 	ip_header->ip_sum = cksum(ip_header, sizeof(sr_ip_hdr_t));
 
@@ -580,6 +577,8 @@ int send_icmp_exception(struct sr_instance* sr, uint8_t type, uint8_t code, sr_i
 	memcpy(buf + sizeof(sr_ip_hdr_t), icmp_error, icmp_hlen);
 
   ethernet_header->ether_type = htons(ethertype_ip);
+  memcpy(ethernet_header->ether_dhost, incoming_ethernet_header->ether_shost, ETHER_ADDR_LEN);
+  memcpy(ethernet_header->ether_shost, incoming_ethernet_header->ether_dhost, ETHER_ADDR_LEN);
   memcpy(buf + sizeof(sr_ip_hdr_t) + sizeof(sr_ethernet_hdr_t), icmp_error, icmp_hlen);
 
   int serror = sr_send_packet(sr, client_memory, sizeof(sr_ip_hdr_t)+sizeof(sr_icmp_hdr_t), interface->name);
