@@ -328,7 +328,7 @@ struct sr_if* sr_match_interface(struct sr_instance* sr, uint32_t ip) {
     }
     else { 
     	printf("Is TCP/UDP, sending exception.\n");
-      send_icmp_exception(sr, 3, 3, packet, ip_buffer, (struct sr_if*)ip_interface); /*send an exception is UDP or TCP payload is sent to one of the interfaces*/
+      send_icmp_reply(sr, 3, 3, packet, (struct sr_if*)ip_interface); /*send an exception is UDP or TCP payload is sent to one of the interfaces*/
     } 
   } 
   /*if not within network/destined elsewhere*/
@@ -436,7 +436,7 @@ int send_icmp_reply(struct sr_instance* sr, uint8_t type, uint8_t code, uint8_t*
 		icmp_t3_hdr->icmp_code = code;
 		icmp_t3_hdr->next_mtu = 0;
 		icmp_t3_hdr->unused = 0;
-		memcpy(icmp_t3_hdr->data, packet, ICMP_DATA_SIZE);
+		memcpy(icmp_t3_hdr->data, incoming_ip_hdr, ICMP_DATA_SIZE);
 		icmp_t3_hdr->icmp_sum = 0;
 		icmp_t3_hdr->icmp_sum = cksum((uint8_t*) icmp_t3_hdr, sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t) + sizeof(sr_icmp_t3_hdr_t));
 		
