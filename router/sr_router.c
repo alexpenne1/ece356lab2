@@ -500,8 +500,8 @@ int send_icmp_reply(struct sr_instance* sr, uint8_t type, uint8_t code, uint8_t*
 
 int send_icmp_exception(struct sr_instance* sr, uint8_t type, uint8_t code, uint8_t* packet, uint8_t* buf, struct sr_if* interface) {
 	printf("Making exception packet\n");
-  uint8_t* client_memory = (uint8_t*) malloc(sizeof(sr_ip_hdr_t)+sizeof(sr_ethernet_hdr_t)+sizeof(sr_icmp_hdr_t));
-  sr_ip_hdr_t* ip_header = (sr_ip_hdr_t*)(client_memory+sizeof(sr_ip_hdr_t));
+  uint8_t* client_memory = (uint8_t*) malloc(sizeof(sr_ip_hdr_t)+sizeof(sr_ethernet_hdr_t)+sizeof(sr_icmp_t3_hdr_t));
+  sr_ip_hdr_t* ip_header = (sr_ip_hdr_t*)(client_memory+sizeof(sr_ethernet_hdr_t));
   printf("Casting incoming packet\n");
   sr_ip_hdr_t* incoming_ip_hdr = (sr_ip_hdr_t*) (packet+sizeof(sr_ethernet_hdr_t));
   sr_ethernet_hdr_t* incoming_ethernet_header = (sr_ethernet_hdr_t*)packet;
@@ -512,10 +512,10 @@ int send_icmp_exception(struct sr_instance* sr, uint8_t type, uint8_t code, uint
   /*memcpy(ip_header, incoming_ip_hdr, ntohs(incoming_ip_hdr->ip_len));*/
 
   /*populate icmp header*/
-  sr_icmp_t3_hdr_t* icmp_error = (sr_icmp_t3_hdr_t*)client_memory+sizeof(sr_ethernet_hdr_t)+sizeof(sr_ip_hdr_t);
+  sr_icmp_t3_hdr_t* icmp_error = (sr_icmp_t3_hdr_t*)(client_memory+sizeof(sr_ethernet_hdr_t)+sizeof(sr_ip_hdr_t));
 	uint32_t icmp_hlen = sizeof(sr_icmp_t3_hdr_t);
 	icmp_error->unused = 0;
-	/*memcpy(icmp_error->data, buf, ICMP_DATA_SIZE);*/
+	memcpy(icmp_error->data, incoming_ip_hdr, ICMP_DATA_SIZE);
 	icmp_error->icmp_sum = 0;
 	icmp_error->icmp_sum = cksum(icmp_error, icmp_hlen);
 	
@@ -550,11 +550,13 @@ int send_icmp_exception(struct sr_instance* sr, uint8_t type, uint8_t code, uint
   printf("Populating IP Header\n");
   /*populate ip header*/
 	ip_header->ip_tos = 0x0000;
-	ip_header->ip_len = sizeof(sr_ip_hdr_t) + sizeof(sr_icmp_t3_hdr_t);
+	ip_header->ip_len = sizeof(sr_ip_hdr_t);
 	ip_header->ip_id = 4;
 	ip_header->ip_off = IP_RF;
 	ip_header->ip_ttl = IP_TTL;
 	ip_header->ip_p = ip_protocol_icmp;
+	printf("IP source:%d\n", interface->ip);
+	
 	ip_header->ip_src = interface->ip;
 	ip_header->ip_dst = incoming_ip_hdr->ip_src;
 	ip_header->ip_sum = 0;
@@ -567,8 +569,9 @@ int send_icmp_exception(struct sr_instance* sr, uint8_t type, uint8_t code, uint
   memcpy(ethernet_header->ether_dhost, incoming_ethernet_header->ether_shost, ETHER_ADDR_LEN);
   memcpy(ethernet_header->ether_shost, incoming_ethernet_header->ether_dhost, ETHER_ADDR_LEN);
   
-  printf("trying to send packet\n");
-  int serror = sr_send_packet(sr, client_memory, sizeof(sr_ethernet_hdr_t)+ sizeof(sr_ip_hdr_t)+sizeof(sr_icmp_hdr_t), interface->name);
+  printf("trying to send packet:\n");
+  print_hdrs(client_memory, sizeof(sr_ethernet_hdr_t)+ sizeof(sr_ip_hdr_t)+sizeof(sr_icmp_t3_hdr_t));
+  int serror = sr_send_packet(sr, client_memory, sizeof(sr_ethernet_hdr_t)+ sizeof(sr_ip_hdr_t)+sizeof(sr_icmp_t3_hdr_t), interface->name);
 	if (serror != 0 ) {
     printf("sr_send_packet error when trying to send ICMP exception.\n");
   } else {
