@@ -299,7 +299,7 @@ struct sr_if* sr_match_interface(struct sr_instance* sr, uint32_t ip) {
   /* check ttl */
     if (ip_packet->ip_ttl <= 1) {
   	  printf("Packet timed out. TTL <= 1. \n");
-  	  send_icmp_reply(sr, 11, 9, packet, (struct sr_if *)ip_interface); /*time exceeded*/
+  	  send_icmp_reply(sr, 11, 0, packet, (struct sr_if *)ip_interface); /*time exceeded*/
   	  return;
     } else {
     	printf("IP TTL valid.\n");
@@ -339,12 +339,13 @@ struct sr_if* sr_match_interface(struct sr_instance* sr, uint32_t ip) {
       struct in_addr ip_check;
       ip_check.s_addr = ip_packet->ip_dst;
       struct sr_rt* next_hop_ip = search_rt(sr, ip_check);
-      struct sr_if* next_hop_interface = sr_get_interface(sr, next_hop_ip->interface);
+      
       if (next_hop_ip == 0) {
         printf("Next hop not found.\n");
         send_icmp_reply(sr, 3, 0, packet, (struct sr_if*)ip_interface); /*port unreachable*/
         return; /*discard packet*/
       }
+      struct sr_if* next_hop_interface = sr_get_interface(sr, next_hop_ip->interface);
       /*check arp cache for the next MAC address corresponding to the next-hop IP */
       printf("Searching for next hop MAC address.\n");
       uint32_t nh_addr = next_hop_ip->dest.s_addr;
