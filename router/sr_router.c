@@ -434,13 +434,29 @@ int send_icmp_reply(struct sr_instance* sr, uint8_t type, uint8_t code, uint8_t*
 	if (type == 3) {
 		sr_icmp_t3_hdr_t* icmp_t3_hdr = (sr_icmp_t3_hdr_t*) (client_memory + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t));
 		icmp_t3_hdr->icmp_type = type;
-		icmp_t3_hdr->icmp_code = code;
 		icmp_t3_hdr->next_mtu = 0;
 		icmp_t3_hdr->unused = 0;
 		memcpy(icmp_t3_hdr->data, incoming_ip_hdr, ICMP_DATA_SIZE);
 		icmp_t3_hdr->icmp_sum = 0;
 		icmp_t3_hdr->icmp_sum = cksum((uint8_t*) icmp_t3_hdr, sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t) + sizeof(sr_icmp_t3_hdr_t));
 		
+		if (code ==  0) {
+		printf("Destination net unreachable");
+		icmp_t3_hdr->icmp_code = 0;
+		}
+		if (code == 1) {
+		printf("Destination host unreachable");
+		icmp_t3_hdr->icmp_code = 1;
+		}
+		if (code == 3) {
+		printf("Port unreachable");
+		icmp_t3_hdr->icmp_code = 3;
+		}
+
+
+	if (type == 11) {
+
+	}
 	} else {
 		
 		sr_icmp_hdr_t* icmp_hdr = (sr_icmp_hdr_t*) (client_memory + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t));
@@ -450,6 +466,7 @@ int send_icmp_reply(struct sr_instance* sr, uint8_t type, uint8_t code, uint8_t*
 		icmp_hdr->icmp_sum = cksum((uint8_t*)icmp_hdr, sizeof(sr_icmp_hdr_t));
 	}
 	
+
   /*populate ip header*/
 	ip_header->ip_ttl = 64;
 	ip_header->ip_p = ip_protocol_icmp;
@@ -499,91 +516,91 @@ int send_icmp_reply(struct sr_instance* sr, uint8_t type, uint8_t code, uint8_t*
 
 }
 
-int send_icmp_exception(struct sr_instance* sr, uint8_t type, uint8_t code, uint8_t* packet, uint8_t* buf, struct sr_if* interface) {
-	printf("Making exception packet\n");
-  uint8_t* client_memory = (uint8_t*) malloc(sizeof(sr_ip_hdr_t)+sizeof(sr_ethernet_hdr_t)+sizeof(sr_icmp_t3_hdr_t));
-  sr_ip_hdr_t* ip_header = (sr_ip_hdr_t*)(client_memory+sizeof(sr_ethernet_hdr_t));
-  printf("Casting incoming packet\n");
-  sr_ip_hdr_t* incoming_ip_hdr = (sr_ip_hdr_t*) (packet+sizeof(sr_ethernet_hdr_t));
-  sr_ethernet_hdr_t* incoming_ethernet_header = (sr_ethernet_hdr_t*)packet;
-  printf("Populating ICMP header\n");
-  /*populate ethernet header*/
-  sr_ethernet_hdr_t* ethernet_header = (sr_ethernet_hdr_t*)client_memory;
+// int send_icmp_exception(struct sr_instance* sr, uint8_t type, uint8_t code, uint8_t* packet, uint8_t* buf, struct sr_if* interface) {
+// 	printf("Making exception packet\n");
+// 	uint8_t* client_memory = (uint8_t*) malloc(sizeof(sr_ip_hdr_t)+sizeof(sr_ethernet_hdr_t)+sizeof(sr_icmp_t3_hdr_t));
+// 	sr_ip_hdr_t* ip_header = (sr_ip_hdr_t*)(client_memory+sizeof(sr_ethernet_hdr_t));
+// 	printf("Casting incoming packet\n");
+// 	sr_ip_hdr_t* incoming_ip_hdr = (sr_ip_hdr_t*) (packet+sizeof(sr_ethernet_hdr_t));
+// 	sr_ethernet_hdr_t* incoming_ethernet_header = (sr_ethernet_hdr_t*)packet;
+// 	printf("Populating ICMP header\n");
+// 	/*populate ethernet header*/
+// 	sr_ethernet_hdr_t* ethernet_header = (sr_ethernet_hdr_t*)client_memory;
 
-  /*memcpy(ip_header, incoming_ip_hdr, ntohs(incoming_ip_hdr->ip_len));*/
+// 	/*memcpy(ip_header, incoming_ip_hdr, ntohs(incoming_ip_hdr->ip_len));*/
 
-  /*populate icmp header*/
-  sr_icmp_t3_hdr_t* icmp_error = (sr_icmp_t3_hdr_t*)(client_memory+sizeof(sr_ethernet_hdr_t)+sizeof(sr_ip_hdr_t));
-	uint32_t icmp_hlen = sizeof(sr_icmp_t3_hdr_t);
-	icmp_error->unused = 0;
-	memcpy(icmp_error->data, incoming_ip_hdr, ICMP_DATA_SIZE);
-	icmp_error->icmp_sum = 0;
-	icmp_error->icmp_sum = cksum(icmp_error, icmp_hlen);
+// 	/*populate icmp header*/
+// 	sr_icmp_t3_hdr_t* icmp_error = (sr_icmp_t3_hdr_t*)(client_memory+sizeof(sr_ethernet_hdr_t)+sizeof(sr_ip_hdr_t));
+// 		uint32_t icmp_hlen = sizeof(sr_icmp_t3_hdr_t);
+// 		icmp_error->unused = 0;
+// 		memcpy(icmp_error->data, incoming_ip_hdr, ICMP_DATA_SIZE);
+// 		icmp_error->icmp_sum = 0;
+// 		icmp_error->icmp_sum = cksum(icmp_error, icmp_hlen);
+		
+// 	switch (type) {
+// 	case (3): /*the unreachable*/
+		
+// 		icmp_error->icmp_type = 3;
+// 		if (code ==  0) {
+// 		printf("Destination net unreachable");
+// 		icmp_error->icmp_code = 0;
+// 		}
+// 		if (code == 1) {
+// 		printf("Destination host unreachable");
+// 		icmp_error->icmp_code = 1;
+// 		}
+// 		if (code == 3) {
+// 		printf("Port unreachable");
+// 		icmp_error->icmp_code = 3;
+// 		}
+// 		break;
+
+// 	case (11):
+// 		printf("Time exceeded");
+// 		icmp_error->icmp_type = 11;
+// 		icmp_error->icmp_code = 0;
+// 		break;
+
+// 	default:
+// 		/*Nothing should happen <- Error*/
+// 		break;
+// 	}
+// 	printf("Populating IP Header\n");
+// 	/*populate ip header*/
+// 		ip_header->ip_tos = 0x0000;
+// 		ip_header->ip_len = sizeof(sr_ip_hdr_t);
+// 		ip_header->ip_id = 4;
+// 		ip_header->ip_off = IP_RF;
+// 		ip_header->ip_ttl = IP_TTL;
+// 		ip_header->ip_p = ip_protocol_icmp;
+// 		printf("IP source:%d\n", interface->ip);
+		
+// 		ip_header->ip_src = interface->ip;
+// 		ip_header->ip_dst = incoming_ip_hdr->ip_src;
+// 		ip_header->ip_sum = 0;
+// 		ip_header->ip_sum = cksum(ip_header, sizeof(sr_ip_hdr_t));
+
+
 	
-  switch (type) {
-  case (3): /*the unreachable*/
-    
-    icmp_error->icmp_type = 3;
-    if (code ==  0) {
-      printf("Destination net unreachable");
-      icmp_error->icmp_code = 0;
-    }
-    if (code == 1) {
-      printf("Destination host unreachable");
-      icmp_error->icmp_code = 1;
-    }
-    if (code == 3) {
-      printf("Port unreachable");
-      icmp_error->icmp_code = 3;
-    }
-    break;
-
-  case (11):
-    printf("Time exceeded");
-    icmp_error->icmp_type = 11;
-    icmp_error->icmp_code = 0;
-    break;
-
-  default:
-    /*Nothing should happen <- Error*/
-    break;
-  }
-  printf("Populating IP Header\n");
-  /*populate ip header*/
-	ip_header->ip_tos = 0x0000;
-	ip_header->ip_len = sizeof(sr_ip_hdr_t);
-	ip_header->ip_id = 4;
-	ip_header->ip_off = IP_RF;
-	ip_header->ip_ttl = IP_TTL;
-	ip_header->ip_p = ip_protocol_icmp;
-	printf("IP source:%d\n", interface->ip);
+// 		printf("Populating ethernet header\n");
+// 	ethernet_header->ether_type = htons(ethertype_ip);
+// 	memcpy(ethernet_header->ether_dhost, incoming_ethernet_header->ether_shost, ETHER_ADDR_LEN);
+// 	memcpy(ethernet_header->ether_shost, incoming_ethernet_header->ether_dhost, ETHER_ADDR_LEN);
 	
-	ip_header->ip_src = interface->ip;
-	ip_header->ip_dst = incoming_ip_hdr->ip_src;
-	ip_header->ip_sum = 0;
-	ip_header->ip_sum = cksum(ip_header, sizeof(sr_ip_hdr_t));
+// 	printf("trying to send packet:\n");
+// 	print_hdrs(client_memory, sizeof(sr_ethernet_hdr_t)+ sizeof(sr_ip_hdr_t)+sizeof(sr_icmp_t3_hdr_t));
+// 	int serror = sr_send_packet(sr, client_memory, sizeof(sr_ethernet_hdr_t)+ sizeof(sr_ip_hdr_t)+sizeof(sr_icmp_t3_hdr_t), interface->name);
+// 		if (serror != 0 ) {
+// 		printf("sr_send_packet error when trying to send ICMP exception.\n");
+// 	} else {
+// 		printf("exception sent\n");
+// 	}
 
+// 		free(client_memory);
 
-  
-	printf("Populating ethernet header\n");
-  ethernet_header->ether_type = htons(ethertype_ip);
-  memcpy(ethernet_header->ether_dhost, incoming_ethernet_header->ether_shost, ETHER_ADDR_LEN);
-  memcpy(ethernet_header->ether_shost, incoming_ethernet_header->ether_dhost, ETHER_ADDR_LEN);
-  
-  printf("trying to send packet:\n");
-  print_hdrs(client_memory, sizeof(sr_ethernet_hdr_t)+ sizeof(sr_ip_hdr_t)+sizeof(sr_icmp_t3_hdr_t));
-  int serror = sr_send_packet(sr, client_memory, sizeof(sr_ethernet_hdr_t)+ sizeof(sr_ip_hdr_t)+sizeof(sr_icmp_t3_hdr_t), interface->name);
-	if (serror != 0 ) {
-    printf("sr_send_packet error when trying to send ICMP exception.\n");
-  } else {
-	  printf("exception sent\n");
-  }
-
-	free(client_memory);
-
-	return serror;
-  
-}
+// 		return serror;
+	
+// 	}
 
 
 
@@ -591,7 +608,7 @@ int send_icmp_exception(struct sr_instance* sr, uint8_t type, uint8_t code, uint
 
 
 
-/* end sr_ForwardPacket */
+// 	/* end sr_ForwardPacket */
 
 
 
