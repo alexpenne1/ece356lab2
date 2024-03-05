@@ -455,7 +455,8 @@ int send_icmp_reply(struct sr_instance* sr, uint8_t type, uint8_t code, uint8_t*
 
 
 	if (type == 11) {
-
+		icmp_t3_hdr->icmp_type = 11;
+ 		icmp_t3_hdr->icmp_code = 0;
 	}
 	} else {
 		
