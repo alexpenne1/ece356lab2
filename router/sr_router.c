@@ -273,7 +273,7 @@ struct sr_if* sr_match_interface(struct sr_instance* sr, uint32_t ip) {
   void sr_handle_ip(struct sr_instance* sr, uint8_t* packet, char* ip_interface, unsigned int ip_len, unsigned int packet_len) {
 
   
-  uint8_t* ip_buffer = packet+sizeof(sr_ethernet_hdr_t);
+  /*uint8_t* ip_buffer = packet+sizeof(sr_ethernet_hdr_t);*/
   sr_ip_hdr_t* ip_packet = (sr_ip_hdr_t*) (packet + sizeof(sr_ethernet_hdr_t));
   
   
@@ -367,7 +367,7 @@ struct sr_if* sr_match_interface(struct sr_instance* sr, uint32_t ip) {
       } else {
     	  printf("No entry found. Adding this packet to queue:\n");
     	  print_hdr_ip((uint8_t*)ip_packet);
-    	  sr_arpcache_queuereq(&(sr->cache), next_hop_ip->gw.s_addr, packet, packet_len, next_hop_ip->interface); /*i'm assuming that sr_arpcache_sweepreqs handles everything */ 
+    	  sr_arpcache_queuereq(&sr->cache, ip_packet->ip_dst, packet, packet_len, next_hop_ip->interface); /*i'm assuming that sr_arpcache_sweepreqs handles everything */ 
       }
       
       
@@ -405,21 +405,30 @@ struct sr_rt* search_rt(struct sr_instance* sr, struct in_addr addr) {
 int send_icmp_reply(struct sr_instance* sr, uint8_t type, uint8_t code, uint8_t* packet, struct sr_if* interface) {
 	
 	sr_ip_hdr_t* incoming_ip_hdr = (sr_ip_hdr_t*) (packet+sizeof(sr_ethernet_hdr_t));
+	sr_icmp_hdr_t* incoming_icmp_hdr = 0;
+	if (type == 0) {
+		incoming_icmp_hdr = (sr_icmp_hdr_t*) (packet+sizeof(sr_ethernet_hdr_t)+sizeof(sr_ip_hdr_t));
+	}
 	
 	unsigned int icmp_len = 0;
 	switch (type) {
 	case(3):
 			printf("ICMP is Type 3.\n");
-			icmp_len = sizeof(sr_icmp_t3_hdr_t);
+			icmp_len = sizeof(sr_icmp_t3_hdr_t)+ htons(incoming_ip_hdr->ip_len);
+			
+			break;
+	case(11):
+			printf("ICMP is Type 11.\n");
+			icmp_len = sizeof(sr_icmp_t3_hdr_t) + htons(incoming_ip_hdr->ip_len);
 			break;
 	
 	default:
-			printf("ICMP is NOT Type 3.\n");
-			icmp_len = sizeof(sr_icmp_hdr_t);
+			printf("ICMP is NOT Type 3 or 11.\n");
+			icmp_len = sizeof(sr_icmp_hdr_t) + htons(incoming_ip_hdr->ip_len);
 			break;
 	}
 	
-	uint8_t* client_memory = (uint8_t*) malloc(ntohs(incoming_ip_hdr->ip_len)+sizeof(sr_ethernet_hdr_t)+icmp_len);
+	uint8_t* client_memory = (uint8_t*) malloc(sizeof(sr_ip_hdr_t)+sizeof(sr_ethernet_hdr_t)+icmp_len);
 	
 	sr_ethernet_hdr_t* ethernet_header = (sr_ethernet_hdr_t*)client_memory;
 	sr_ip_hdr_t* ip_header = (sr_ip_hdr_t*)(client_memory+sizeof(sr_ethernet_hdr_t));
@@ -429,52 +438,80 @@ int send_icmp_reply(struct sr_instance* sr, uint8_t type, uint8_t code, uint8_t*
 	struct sr_rt* routing_table_entry = search_rt(sr, ip_check);
 	struct sr_if* iface = sr_get_interface(sr, routing_table_entry->interface);
 	
-	memcpy(ip_header, incoming_ip_hdr, ntohs(incoming_ip_hdr->ip_len));
-	
-	if (type == 3) {
+	/*memcpy(ip_header, incoming_ip_hdr, ntohs(incoming_ip_hdr->ip_len));*/
+	/* type == 3*/
+	if (type == 3 || type == 11) {
 		sr_icmp_t3_hdr_t* icmp_t3_hdr = (sr_icmp_t3_hdr_t*) (client_memory + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t));
 		icmp_t3_hdr->icmp_type = type;
 		icmp_t3_hdr->next_mtu = 0;
 		icmp_t3_hdr->unused = 0;
-		memcpy(icmp_t3_hdr->data, incoming_ip_hdr, ICMP_DATA_SIZE);
-		icmp_t3_hdr->icmp_sum = 0;
-		icmp_t3_hdr->icmp_sum = cksum(icmp_t3_hdr, sizeof(sr_icmp_t3_hdr_t));
+		
+		
+		/*memcpy(icmp_t3_hdr->data, packet+sizeof(sr_ethernet_hdr_t), ICMP_DATA_SIZE);*/
+		/*
+		memcpy(icmp_t3_hdr + sizeof(sr_icmp_t3_hdr_t), incoming_ip_hdr, htons(incoming_ip_hdr->ip_len));
+		*/
+		
+		int i;
+		for (i = 0; i < ICMP_DATA_SIZE; i++) {
+			icmp_t3_hdr->data[i] = *((uint8_t*) incoming_ip_hdr + i);
+		}
+		
+		
 		
 		if (code ==  0) {
-		printf("Destination net unreachable");
-		icmp_t3_hdr->icmp_code = 0;
+		printf("Destination net unreachable or TTL.\n");
+		
 		}
 		if (code == 1) {
-		printf("Destination host unreachable");
-		icmp_t3_hdr->icmp_code = 1;
+		printf("Destination host unreachable\n");
+		
 		}
 		if (code == 3) {
-		printf("Port unreachable");
-		icmp_t3_hdr->icmp_code = 3;
+		printf("Port unreachable\n");
+		
 		}
+		
+		
+		icmp_t3_hdr->icmp_code = code;
+		if (type==0) {
+			icmp_t3_hdr->icmp_code = 0;
+		}
+		icmp_t3_hdr->icmp_sum = 0;
+		icmp_t3_hdr->icmp_sum = cksum(icmp_t3_hdr, icmp_len);
 
 
-	if (type == 11) {
+	/*if (type == 11) {
 		icmp_t3_hdr->icmp_type = 11;
  		icmp_t3_hdr->icmp_code = 0;
-	}
+	}*/
 	} else {
 		
 		sr_icmp_hdr_t* icmp_hdr = (sr_icmp_hdr_t*) (client_memory + sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t));
 		icmp_hdr->icmp_type = type;
-		icmp_hdr->icmp_code = code;
+		icmp_hdr->icmp_code = 0;
+		/*memcpy(icmp_hdr+sizeof(sr_icmp_hdr_t), incoming_ip_hdr, htons(incoming_ip_hdr->ip_len));*/
 		icmp_hdr->icmp_sum = 0;
-		icmp_hdr->icmp_sum = cksum((uint8_t*)icmp_hdr, sizeof(sr_icmp_hdr_t));
+		icmp_hdr->icmp_sum = cksum(icmp_hdr, sizeof(sr_icmp_hdr_t));
 	}
 	
 
-  /*populate ip header*/
+  /*populate ip head*/
+	
+	ip_header->ip_hl = 5;
+	ip_header->ip_id = htons(incoming_ip_hdr->ip_id)+1;
+	ip_header->ip_off = htons(IP_DF);
+	ip_header->ip_v = 4;
+	ip_header->ip_tos = 0;
 	ip_header->ip_ttl = 64;
 	ip_header->ip_p = ip_protocol_icmp;
 	ip_header->ip_src = iface->ip;
 	ip_header->ip_dst = incoming_ip_hdr->ip_src;
+	ip_header->ip_len = htons(sizeof(sr_ip_hdr_t) + icmp_len);
+	
 	ip_header->ip_sum = 0;
-	ip_header->ip_sum = cksum(ip_header, sizeof(sr_ip_hdr_t)+icmp_len);
+	ip_header->ip_sum = cksum(ip_header, sizeof(sr_ip_hdr_t));
+	
 
 	/* populate ethernet header */
 	
@@ -489,7 +526,7 @@ int send_icmp_reply(struct sr_instance* sr, uint8_t type, uint8_t code, uint8_t*
 	    	  memcpy(ethernet_header->ether_shost, iface2->addr, ETHER_ADDR_LEN);
 	    	  printf("ICMP packet attempting to send:\n\n");
 	    	  print_hdrs(client_memory, sizeof(sr_ethernet_hdr_t)+ntohs(incoming_ip_hdr->ip_len));
-	    	  int success = sr_send_packet(sr, client_memory, sizeof(sr_ethernet_hdr_t)+ntohs(incoming_ip_hdr->ip_len), iface->name);
+	    	  int success = sr_send_packet(sr, client_memory, sizeof(sr_ethernet_hdr_t)+sizeof(sr_ip_hdr_t)+icmp_len, iface->name);
 			  if (success!=0) {
 				printf("ICMP reply failed to send.\n");
 			  } else {
@@ -500,7 +537,7 @@ int send_icmp_reply(struct sr_instance* sr, uint8_t type, uint8_t code, uint8_t*
 	    	  printf("No forwarding MAC entry found. Adding to queue.\n");
 	    	  printf("ICMP packet adding to queue:\n\n");
 	    	  print_hdrs(client_memory, sizeof(sr_ethernet_hdr_t)+ntohs(incoming_ip_hdr->ip_len));
-	    	  sr_arpcache_queuereq(&(sr->cache), routing_table_entry->gw.s_addr, client_memory, sizeof(sr_ethernet_hdr_t)+ntohs(incoming_ip_hdr->ip_len), iface2->name); /*i'm assuming that sr_arpcache_sweepreqs handles everything */ 
+	    	  sr_arpcache_queuereq(&(sr->cache), routing_table_entry->gw.s_addr, client_memory, sizeof(sr_ethernet_hdr_t)+sizeof(sr_ip_hdr_t) + icmp_len, iface2->name); /*i'm assuming that sr_arpcache_sweepreqs handles everything */ 
 	}
 	      
 	
